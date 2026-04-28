@@ -20,6 +20,10 @@ source pmpnn/bin/activate
 
 #install dependencies
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+#clone ProteinMPNN
+cd /path/to/repo/dir
+git clone https://github.com/dauparas/ProteinMPNN.git
 ```
 
 # Step 2: Clean env
