@@ -9,6 +9,14 @@ Modular scaffold binder design pipeline with restartable HPC stages:
 
 Each script takes the same settings file and creates one subdirectory under `output_dir`. Existing outputs are counted before work starts, so a time-limited HPC job can be resubmitted without restarting completed work.
 
+## Setup
+You need 4 environments:
+1. Colabdesign_modified
+2. ProteinMPNN
+3. Fast_Protenix
+4. OpenMM
+
+
 ## Usage
 
 Edit `settings/example.json`, then run each stage independently:
