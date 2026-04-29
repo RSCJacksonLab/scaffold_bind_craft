@@ -1,0 +1,164 @@
+# Step 0:
+Make sure it is not already installed!!! **It may already be partly available on Gadi**
+
+This setup avoids Docker. It uses Gadi modules for Python, CUDA, and MMseqs2, then uses pip for AlphaFast, Fast Protenix, and Protenix.
+
+Use two Python environments:
+
+- `fast_protenix_alphafast`: runs `scaffold_bind_craft`, `fast_protenix`, and AlphaFast preprocessing.
+- `protenix`: runs the Protenix CLI for prediction.
+
+Keeping them separate avoids dependency conflicts between AlphaFast and Protenix.
+
+
+# Step 1: Create env
+
+```
+# navigate to correct dir
+cd /path/to/install/location
+
+# load modules
+module use -a /g/data/if89/apps/modulefiles
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+
+# check module binaries
+which python3
+which mmseqs
+mmseqs version
+
+# make AlphaFast / Fast Protenix env
+python3 -m venv fast_protenix_alphafast
+
+# load env
+source fast_protenix_alphafast/bin/activate
+
+# install dependencies
+python -m pip install --upgrade pip setuptools wheel
+
+# install AlphaFast and Fast Protenix from local checkouts
+python -m pip install -e /path/to/repos/alphafast
+python -m pip install -e /path/to/repos/fast_protenix
+
+# optional: install scaffold_bind_craft in editable mode if running outside the repo
+python -m pip install -e /path/to/repos/scaffold_bind_craft
+
+# leave the AlphaFast env
+deactivate
+
+# make Protenix env
+python3 -m venv protenix
+
+# load env
+source protenix/bin/activate
+
+# install dependencies
+python -m pip install --upgrade pip setuptools wheel
+
+# install Protenix from PyPI
+python -m pip install protenix
+
+# check CLI
+which protenix
+protenix --help
+
+# leave the Protenix env
+deactivate
+```
+
+The AlphaFast database setup still needs the public AlphaFast databases and the padded MMseqs2 databases. If the prebuilt databases are being downloaded on Gadi, keep them on `/scratch` or another high-throughput project filesystem, not `$HOME`.
+
+```
+cd /path/to/repos/alphafast
+module use -a /g/data/if89/apps/modulefiles
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+source /path/to/install/location/fast_protenix_alphafast/bin/activate
+
+# default: protein + RNA MMseqs + mmCIF from HuggingFace
+./scripts/setup_databases.sh /scratch/xz2/$USER/alphafast_databases
+
+# expected protein MMseqs path for scaffold_bind_craft settings:
+# /scratch/xz2/$USER/alphafast_databases/mmseqs
+```
+
+Update the `fast_protenix` section of your settings JSON:
+
+```
+"fast_protenix": {
+  "path": "/path/to/repos/fast_protenix",
+  "python": "/path/to/install/location/fast_protenix_alphafast/bin/python",
+  "db_dir": "/scratch/xz2/YOUR_USER/alphafast_databases",
+  "mmseqs_db_dir": "/scratch/xz2/YOUR_USER/alphafast_databases/mmseqs",
+  "alphafast_dir": "/path/to/repos/alphafast",
+  "batch_size": 512,
+  "gpu_device": 0,
+  "temp_dir": null,
+  "run_protenix": true,
+  "protenix_bin": "/path/to/install/location/protenix/bin/protenix",
+  "protenix_model": "protenix_base_default_v1.0.0",
+  "alphafast_args": [],
+  "protenix_args": []
+}
+```
+
+
+# Step 2: Clean env
+```
+# change group to xz2 and give read write privilages
+chgrp -R xz2 ./fast_protenix_alphafast ./protenix
+chmod -R g+rwX ./fast_protenix_alphafast ./protenix
+find ./fast_protenix_alphafast ./protenix -type d -exec chmod g+s {} +
+
+# check inode usage before cleaning
+find ./fast_protenix_alphafast -xdev -printf '.' | wc -c
+find ./protenix -xdev -printf '.' | wc -c
+
+# Remove documentation directories
+find ./fast_protenix_alphafast ./protenix -type d -name "doc*" -exec rm -rf {} +
+
+# Remove test directories
+find ./fast_protenix_alphafast ./protenix -type d -name "tests" -exec rm -rf {} +
+
+# Remove Python cache files
+find ./fast_protenix_alphafast ./protenix -type d -name "__pycache__" -exec rm -rf {} +
+
+# Remove additional cache and temp files
+find ./fast_protenix_alphafast ./protenix -name "*.pyc" -delete
+find ./fast_protenix_alphafast ./protenix -name "*.pyo" -delete
+find ./fast_protenix_alphafast ./protenix -name ".DS_Store" -delete
+find ./fast_protenix_alphafast ./protenix -type d -name ".pytest_cache" -exec rm -rf {} +
+
+# check inode usage after cleaning
+find ./fast_protenix_alphafast -xdev -printf '.' | wc -c
+find ./protenix -xdev -printf '.' | wc -c
+```
+
+
+# Step 3: Loading Dir
+```
+module use -a /g/data/if89/apps/modulefiles
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+
+# run scaffold_bind_craft / Fast Protenix from the AlphaFast env
+source /path/to/install/location/fast_protenix_alphafast/bin/activate
+
+# make sure Protenix can still be found through the absolute settings path
+/path/to/install/location/protenix/bin/protenix --help
+
+# optional runtime temp for MMseqs on a PBS job
+export TMPDIR="${PBS_JOBFS:-/tmp}"
+export MMSEQS_TMP="${PBS_JOBFS:-/tmp}/mmseqs"
+mkdir -p "$MMSEQS_TMP"
+```
+
+For the existing PBS script, set `VENV` to the AlphaFast / Fast Protenix environment:
+
+```
+qsub -v VENV=/path/to/install/location/fast_protenix_alphafast,SETTINGS=/path/to/settings.json scripts/gadi/03_run_fast_protenix.pbs
+```
+
+If `scripts/gadi/03_run_fast_protenix.pbs` still loads `colabfold_batch`, replace that module line with the explicit MMseqs2 module used above:
+
+```
+module use -a /g/data/if89/apps/modulefiles
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+```
