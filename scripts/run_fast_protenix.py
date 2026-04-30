@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scaffold_bind_craft.config import load_settings, require, stage_dir
+from scaffold_bind_craft.config import load_settings, require, resolve_path, stage_dir
 from scaffold_bind_craft.fast_protenix_utils import find_protenix_prediction, write_af3_json
 from scaffold_bind_craft.io_utils import append_csv, parse_fasta
 from scaffold_bind_craft.pdb_utils import extract_chain_sequences
@@ -145,7 +145,7 @@ def main() -> int:
     if fast.get("gpu_device") is not None:
         cmd.extend(["--gpu_device", str(int(fast["gpu_device"]))])
     if fast.get("temp_dir"):
-        cmd.extend(["--temp_dir", str(Path(fast["temp_dir"]).expanduser().resolve())])
+        cmd.extend(["--temp_dir", str(resolve_path(fast["temp_dir"]))])
     if fast.get("run_protenix", True):
         cmd.append("--run_protenix")
     cmd.extend(["--protenix_bin", str(fast.get("protenix_bin", "protenix"))])

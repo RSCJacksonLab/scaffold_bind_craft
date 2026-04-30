@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -45,7 +46,7 @@ def stage_dir(settings: Mapping[str, Any], stage: str) -> Path:
 
 
 def resolve_path(value: str | Path, base: str | Path | None = None) -> Path:
-    path = Path(value).expanduser()
+    path = Path(os.path.expandvars(str(value))).expanduser()
     if path.is_absolute():
         return path.resolve()
     if base is not None:
