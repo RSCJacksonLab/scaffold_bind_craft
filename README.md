@@ -61,7 +61,7 @@ output_dir/
 
 ## Notes
 
-- RSO uses `rso.fixed_positions` for ColabDesign and `proteinmpnn.design_positions` for ProteinMPNN. The ProteinMPNN positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
+- RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
 - Fast Protenix target sequences can be set explicitly with `fast_protenix.target_sequences`. If omitted, they are extracted from `input_pdb` for `fast_protenix.target_chains`.
 - Fast Protenix uses `../fast_protenix` by default through `python -m fast_protenix.cli`, so the stage can run from the adjacent checkout without installing a console script. Configure `fast_protenix.db_dir`, `fast_protenix.mmseqs_db_dir`, and `fast_protenix.alphafast_dir` for the AlphaFast preprocessing step.
 - Screening records Protenix confidence fields as `protenix_plddt`, `protenix_gpde`, `protenix_ptm`, `protenix_iptm`, `protenix_ranking_score`, and `protenix_has_clash`. Compatibility aliases for selected old `boltz_*` columns are also written for older CSV consumers.

@@ -13,6 +13,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
 from scaffold_bind_craft.io_utils import append_csv, append_jsonl, read_csv_rows, read_jsonl
+from scaffold_bind_craft.pdb_utils import parse_position_string
 
 np: Any = None
 
@@ -94,6 +95,75 @@ def below_threshold(value: float | None, threshold: float | None) -> bool:
     return threshold is not None and value is not None and value < float(threshold)
 
 
+def fixed_positions_from_design_positions(settings: dict[str, Any], rso: dict[str, Any]) -> str | None:
+    fixed_positions = rso.get("fixed_positions", settings.get("fixed_positions", None))
+    if fixed_positions is not None:
+        return fixed_positions
+
+    design_positions = parse_position_string(rso.get("design_positions", settings.get("design_positions", None)))
+    if not design_positions:
+        return None
+
+    binder_chain = str(rso.get("binder_chain", settings.get("binder_chain", "B")))
+    chain_ids = [chain.strip() for chain in binder_chain.split(",") if chain.strip()]
+    residues = binder_residue_ids(require(settings, "input_pdb"), chain_ids)
+    if not residues:
+        binder_length = rso.get("binder_length")
+        if binder_length is None:
+            raise ValueError("Cannot infer RSO fixed_positions complement without binder residues or rso.binder_length")
+        residues = [(chain_ids[0], index) for index in range(1, int(binder_length) + 1)]
+
+    design_set = set(design_positions)
+    invalid_positions = sorted(pos for pos in design_set if pos < 1 or pos > len(residues))
+    if invalid_positions:
+        raise ValueError(
+            f"design_positions contains positions outside binder length {len(residues)}: {invalid_positions}"
+        )
+    fixed_residues = [
+        (chain_id, resseq)
+        for ordinal, (chain_id, resseq) in enumerate(residues, start=1)
+        if ordinal not in design_set
+    ]
+    return compact_chain_positions(fixed_residues)
+
+
+def binder_residue_ids(pdb_path: str | Path, chain_ids: list[str]) -> list[tuple[str, int]]:
+    from Bio.PDB import PDBParser, Polypeptide
+
+    parser = PDBParser(QUIET=True)
+    model = parser.get_structure("input", str(pdb_path))[0]
+    residues: list[tuple[str, int]] = []
+    for chain_id in chain_ids:
+        if chain_id not in model:
+            continue
+        for residue in model[chain_id]:
+            if Polypeptide.is_aa(residue, standard=True):
+                residues.append((chain_id, int(residue.id[1])))
+    return residues
+
+
+def compact_chain_positions(residues: list[tuple[str, int]]) -> str:
+    if not residues:
+        return ""
+    tokens: list[str] = []
+    run_chain, run_start = residues[0]
+    run_end = run_start
+    for chain_id, resseq in residues[1:]:
+        if chain_id == run_chain and resseq == run_end + 1:
+            run_end = resseq
+            continue
+        tokens.append(format_position_run(run_chain, run_start, run_end))
+        run_chain, run_start, run_end = chain_id, resseq, resseq
+    tokens.append(format_position_run(run_chain, run_start, run_end))
+    return ",".join(tokens)
+
+
+def format_position_run(chain_id: str, start: int, end: int) -> str:
+    if start == end:
+        return f"{chain_id}{start}"
+    return f"{chain_id}{start}-{chain_id}{end}"
+
+
 def rso_filters_pass(metrics: dict[str, float | None], filters: dict[str, Any]) -> tuple[bool, str]:
     checks = [
         ("plddt", filters.get("min_plddt"), True),
@@ -127,7 +197,7 @@ def initialise_model(settings: dict[str, Any]) -> Any:
         chain=rso.get("target_chains", settings.get("target_chains", "A")),
         hotspot=rso.get("hotspot_residues", settings.get("hotspot_residues", "")),
         binder_chain=rso.get("binder_chain", settings.get("binder_chain", "B")),
-        fix_pos=rso.get("fixed_positions", settings.get("fixed_positions", None)),
+        fix_pos=fixed_positions_from_design_positions(settings, rso),
     )
 
     if "contacts" in rso:
