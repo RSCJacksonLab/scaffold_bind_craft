@@ -105,7 +105,7 @@
     "alphafast_dir": "/path/to/alphafast",
     "batch_size": 512,
     "gpu_device": 0,
-    "temp_dir": null,
+    "temp_dir": "/path/to/jobfs",
     "run_protenix": true,
     "protenix_bin": "protenix",
     "protenix_model": "protenix_base_default_v1.0.0",
