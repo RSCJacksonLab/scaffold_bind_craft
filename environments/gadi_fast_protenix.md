@@ -148,3 +148,27 @@ module purge
 module load python3/3.10.4 cuda/12.9.0 MMseqs2/18-8cc5c gcc/15.1.0
 source protenix/bin/activate
 ```
+
+# Step 4: Protenix Weights
+Download to a different computer and move accross with rsync via gadi-dm
+**Download**:
+```
+export PROTENIX_ROOT_DIR=~/protenix_models
+mkdir -p "$PROTENIX_ROOT_DIR/checkpoint"
+
+# Download Protenix v1 2025 checkpoint
+curl -L -C - \
+  -o "$PROTENIX_ROOT_DIR/checkpoint/protenix_base_20250630_v1.0.0.pt" \
+  "https://protenix.tos-cn-beijing.volces.com/checkpoint/protenix_base_20250630_v1.0.0.pt"
+
+# Download inference accessory data for the 2025 model
+curl -L -C - \
+  -o "$PROTENIX_ROOT_DIR/common.tar.gz" \
+  "https://protenix.tos-cn-beijing.volces.com/protenix.20260101/common.tar.gz"
+
+curl -L -C - \
+  -o "$PROTENIX_ROOT_DIR/search_database.tar.gz" \
+  "https://protenix.tos-cn-beijing.volces.com/protenix.20260101/search_database.tar.gz"
+
+# Extract accessory data
+tar -xzvf "$PROTENIX_ROOT_DIR/common.tar.gz" -C "$PROTENIX_ROOT_DIR"
