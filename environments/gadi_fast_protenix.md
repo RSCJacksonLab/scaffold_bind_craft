@@ -42,21 +42,19 @@ python -m pip install -e /path/to/repos/fast_protenix
 # leave the AlphaFast env
 deactivate
 
-# make Protenix env
-python3 -m venv protenix
 
-# load env
+# load new modules
+module purge
+module use -a /g/data/if89/apps/modulefiles
+module load python3/3.10.4 cuda/12.9.0 MMseqs2/18-8cc5c gcc/15.1.0
+
+# make and load env
+python3 -m venv protenix
 source protenix/bin/activate
 
 # install dependencies
 python -m pip install --upgrade pip setuptools wheel
-
-# install Protenix from PyPI
 python -m pip install protenix
-
-# check CLI
-which protenix
-protenix --help
 
 # leave the Protenix env
 deactivate
@@ -140,5 +138,7 @@ source /path/to/install/location/fast_protenix_alphafast/bin/activate
 
 # load protenix
 deactivate
+module purge
+module load python3/3.10.4 cuda/12.9.0 MMseqs2/18-8cc5c gcc/15.1.0
 source protenix/bin/activate
 ```
