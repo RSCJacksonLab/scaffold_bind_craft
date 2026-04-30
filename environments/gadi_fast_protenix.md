@@ -19,7 +19,7 @@ cd /path/to/install/location
 
 # load modules
 module use -a /g/data/if89/apps/modulefiles
-module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c gcc/15.1.0
 
 # check module binaries
 which python3
@@ -133,7 +133,7 @@ find ./protenix -xdev -printf '.' | wc -c
 # Step 3: Loading Dir
 ```
 module use -a /g/data/if89/apps/modulefiles
-module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c gcc/15.1.0
 
 # run scaffold_bind_craft / Fast Protenix from the AlphaFast env
 source /path/to/install/location/fast_protenix_alphafast/bin/activate
