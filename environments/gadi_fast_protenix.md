@@ -90,10 +90,16 @@ Update the `fast_protenix` section of your settings JSON:
   "run_protenix": true,
   "protenix_bin": "/path/to/install/location/protenix/bin/protenix",
   "protenix_model": "protenix_base_default_v1.0.0",
+  "protenix_weights_dir": "/scratch/xz2/YOUR_USER/protenix_offline_data/checkpoint",
   "alphafast_args": [],
   "protenix_args": []
 }
 ```
+
+`protenix_weights_dir` should be the directory containing the Protenix checkpoint file, for example
+`protenix_base_default_v1.0.0.pt`. It is passed to `protenix pred` as
+`--load_checkpoint_dir`, so it can be used on airgapped machines instead of relying on
+Protenix's default `~/checkpoint` location.
 
 
 # Step 2: Clean env

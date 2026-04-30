@@ -157,6 +157,10 @@ def main() -> int:
         cmd.extend(["--protenix_model", str(fast["protenix_model"])])
     add_repeated_arg(cmd, "--alphafast_arg", [str(x) for x in fast.get("alphafast_args", [])])
     protenix_args = [str(x) for x in fast.get("protenix_args", [])]
+    if fast.get("protenix_weights_dir") and not has_cli_option(protenix_args, "--load_checkpoint_dir"):
+        protenix_args.extend(
+            ["--load_checkpoint_dir", str(resolve_path(fast["protenix_weights_dir"]))]
+        )
     if not has_cli_option(protenix_args, "--seeds", "-s"):
         protenix_args.extend(["--seeds", str(seed)])
     if "sample" in fast and not has_cli_option(protenix_args, "--sample", "-e"):
