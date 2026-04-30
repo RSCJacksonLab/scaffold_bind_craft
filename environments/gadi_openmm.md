@@ -41,9 +41,6 @@ python -m pip install \
 # PDBFixer is normally distributed from the OpenMM GitHub repository
 python -m pip install "pdbfixer @ git+https://github.com/openmm/pdbfixer.git"
 
-# optional: install scaffold_bind_craft in editable mode if running outside the repo
-python -m pip install -e /path/to/repos/scaffold_bind_craft
-
 # leave the env
 deactivate
 ```
