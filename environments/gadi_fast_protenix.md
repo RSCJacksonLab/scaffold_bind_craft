@@ -151,7 +151,9 @@ source protenix/bin/activate
 
 # Step 4: Protenix Weights
 Download to a different computer and move accross with rsync via gadi-dm
+
 **Download**:
+
 ```
 export PROTENIX_ROOT_DIR=~/protenix_models
 mkdir -p "$PROTENIX_ROOT_DIR/checkpoint"
@@ -172,3 +174,6 @@ curl -L -C - \
 
 # Extract accessory data
 tar -xzvf "$PROTENIX_ROOT_DIR/common.tar.gz" -C "$PROTENIX_ROOT_DIR"
+```
+
+Then move to gadi via gadi-dm with rsync
