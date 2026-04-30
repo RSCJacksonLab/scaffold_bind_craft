@@ -1,0 +1,37 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q gpuvolta
+#PBS -l walltime=48:00:00
+#PBS -l mem=60GB
+#PBS -l jobfs=80GB
+#PBS -l ncpus=12
+#PBS -l ngpus=1
+#PBS -l wd
+#PBS -r y
+#PBS -l storage=scratch/xz2+gdata/xz2+gdata/if89
+#PBS -M <YOUR_EMAIL_HERE>
+
+set -euo pipefail
+
+module use -a /g/data/if89/apps/modulefiles
+module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+
+REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
+SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
+LIMIT="${LIMIT:-100}"
+OUTPUT_DIR="${OUTPUT_DIR:-}"
+VENV="${VENV:-/scratch/xz2/$USER/fast_protenix_alphafast}"
+
+export TMPDIR="${PBS_JOBFS:-/tmp}"
+export MMSEQS_TMP="${PBS_JOBFS:-/tmp}/mmseqs"
+mkdir -p "$MMSEQS_TMP"
+
+source "$VENV/bin/activate"
+cd "$REPO_DIR"
+
+args=(--settings "$SETTINGS" --limit "$LIMIT")
+if [[ -n "$OUTPUT_DIR" ]]; then
+  args+=(--output-dir "$OUTPUT_DIR")
+fi
+
+python3 scripts/run_fast_protenix.py "${args[@]}"
