@@ -39,9 +39,6 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e /path/to/repos/alphafast
 python -m pip install -e /path/to/repos/fast_protenix
 
-# optional: install scaffold_bind_craft in editable mode if running outside the repo
-python -m pip install -e /path/to/repos/scaffold_bind_craft
-
 # leave the AlphaFast env
 deactivate
 
