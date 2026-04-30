@@ -16,6 +16,11 @@ if str(REPO_ROOT) not in sys.path:
 from scaffold_bind_craft.config import load_settings, require, stage_dir
 from scaffold_bind_craft.fast_protenix_utils import find_protenix_prediction
 from scaffold_bind_craft.io_utils import append_csv, flatten_json, read_csv_rows
+from scaffold_bind_craft.openmm_screen_utils import (
+    calculate_clash_score,
+    openmm_relax_subprocess,
+    pr_alternative_score_interface,
+)
 from scaffold_bind_craft.pdb_utils import cif_to_pdb, extract_chain_sequences
 
 
@@ -71,11 +76,6 @@ INTERFACE_FIELDS = [
     "interface_residues",
     "interface_amino_acids",
 ]
-
-
-def add_freebindcraft_to_path(settings: dict[str, Any]) -> None:
-    path = require(settings, "tools", "freebindcraft_path")
-    sys.path.insert(0, str(Path(path).expanduser().resolve()))
 
 
 def passes_filters(row: dict[str, Any], filters: dict[str, Any]) -> tuple[bool, str]:
@@ -181,10 +181,6 @@ def main() -> int:
     if not pending:
         return 0
 
-    add_freebindcraft_to_path(settings)
-    from functions.biopython_utils import calculate_clash_score
-    from functions.pr_alternative_utils import openmm_relax_subprocess, pr_alternative_score_interface
-
     fields = BASE_FIELDS + PREDICTION_FIELDS + BOLTZ_COMPAT_FIELDS + INTERFACE_FIELDS
     binder_chain = screen.get("binder_chain", settings.get("binder_chain", "B"))
     target_chain = screen.get("target_chain", "A")
@@ -215,6 +211,8 @@ def main() -> int:
                     timeout=screen.get("openmm_timeout_seconds"),
                     max_attempts=int(screen.get("openmm_max_attempts", 3)),
                     use_faspr_repack=bool(screen.get("use_faspr_repack", True)),
+                    starting_pdb=settings.get("input_pdb"),
+                    target_chains=settings.get("target_chains"),
                 )
             unrelaxed_clashes = calculate_clash_score(str(unrelaxed_pdb), threshold=float(screen.get("clash_threshold", 2.4)))
             relaxed_clashes = calculate_clash_score(str(relaxed_pdb), threshold=float(screen.get("clash_threshold", 2.4)))

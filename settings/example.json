@@ -9,8 +9,7 @@
   "tools": {
     "colabdesign_path": "/path/to/colabdesign_modified",
     "alphafold_params_dir": "/path/to/alphafold/params",
-    "proteinmpnn_path": "/path/to/ProteinMPNN",
-    "freebindcraft_path": "/path/to/FreeBindCraft"
+    "proteinmpnn_path": "/path/to/ProteinMPNN"
   },
   "stages": {
     "rso": {

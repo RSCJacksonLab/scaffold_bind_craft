@@ -20,7 +20,7 @@ REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
 LIMIT="${LIMIT:-100}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
-VENV="${VENV:-/scratch/xz2/$USER/FreeBindCraft/.venv}"
+VENV="${VENV:-/scratch/xz2/$USER/openmm_screen}"
 
 export TMPDIR="${PBS_JOBFS:-/tmp}"
 

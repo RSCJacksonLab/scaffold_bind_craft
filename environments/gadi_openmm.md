@@ -1,9 +1,7 @@
 # Step 0:
 Make sure it is not already installed!!! **It may already be partly available on Gadi**
 
-This setup avoids Docker and Conda where possible. It uses Gadi modules for Python and CUDA, then uses a Python venv for OpenMM, PDBFixer, FreeBindCraft scoring dependencies, and `scaffold_bind_craft`.
-
-The OpenMM screening stage imports OpenMM helpers from FreeBindCraft through `tools.freebindcraft_path` in the settings JSON, so the FreeBindCraft checkout must be readable from the job.
+This setup avoids Docker and Conda where possible. It uses Gadi modules for Python and CUDA, then uses a Python venv for OpenMM, PDBFixer, PyRosetta-free scoring dependencies, and `scaffold_bind_craft`.
 
 
 # Step 1: Create env
@@ -53,17 +51,15 @@ Update the `tools` section of your settings JSON:
 "tools": {
   "colabdesign_path": "/path/to/colabdesign_modified",
   "alphafold_params_dir": "/path/to/alphafold/params",
-  "proteinmpnn_path": "/path/to/ProteinMPNN",
-  "freebindcraft_path": "/path/to/repos/FreeBindCraft"
+  "proteinmpnn_path": "/path/to/ProteinMPNN"
 }
 ```
 
-Make the bundled FreeBindCraft helper binaries executable. The OpenMM path can use FASPR for side-chain repacking, `sc` for shape complementarity, and `dssp` where secondary-structure helpers need it.
+The OpenMM path can optionally use `FASPR` for side-chain repacking and `sc` / `sc-rs` for shape complementarity if those binaries are available on `PATH`, or via `FASPR_BIN` and `SC_RS_BIN`.
 
 ```
-chmod +x /path/to/repos/FreeBindCraft/functions/FASPR
-chmod +x /path/to/repos/FreeBindCraft/functions/sc
-chmod +x /path/to/repos/FreeBindCraft/functions/dssp
+export FASPR_BIN=/path/to/FASPR
+export SC_RS_BIN=/path/to/sc
 ```
 
 Check that the environment imports the required packages and sees a GPU-capable OpenMM platform:
@@ -140,4 +136,3 @@ If you want OpenMM screening outputs written somewhere other than the settings f
 ```
 qsub -v VENV=/path/to/install/location/openmm_screen,SETTINGS=/path/to/settings.json,OUTPUT_DIR=/scratch/xz2/$USER/runs/run_001,LIMIT=100 scripts/gadi/04_run_openmm_screen.pbs
 ```
-
