@@ -1,0 +1,81 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q copyq
+#PBS -l walltime=48:00:00
+#PBS -l mem=4GB
+#PBS -l ncpus=1
+#PBS -l wd
+#PBS -r y
+#PBS -l storage=scratch/xz2+gdata/xz2+gdata/if89
+#PBS -M <YOUR_EMAIL_HERE>
+
+set -euo pipefail
+
+# copyq is the Gadi queue with external network access. This job downloads the
+# prebuilt AlphaFast databases; do not use this one-CPU queue for local rebuilds.
+module load python3/3.12.1
+
+ALPHAFAST_DIR="${ALPHAFAST_DIR:-/scratch/xz2/ab8507/scaffold_bind_craft/alphafast}"
+TARGET_DIR="${TARGET_DIR:-/scratch/xz2/ab8507/scaffold_bind_craft/alphafast_databases}"
+VENV="${VENV:-/scratch/xz2/ab8507/scaffold_bind_craft/envs/fast_protenix_alphafast}"
+SETUP_ARGS="${SETUP_ARGS:---protein-only}"
+ENSURE_HF_CLI="${ENSURE_HF_CLI:-1}"
+
+export TMPDIR="${PBS_JOBFS:-/tmp}"
+export HF_HOME="${HF_HOME:-/scratch/xz2/$USER/.cache/huggingface}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
+export PATH="$HOME/.local/bin:$PATH"
+
+mkdir -p "$TARGET_DIR" "$HF_HOME" "$HUGGINGFACE_HUB_CACHE"
+
+if [[ -d "$VENV" ]]; then
+  source "$VENV/bin/activate"
+fi
+
+if ! command -v hf >/dev/null 2>&1; then
+  if [[ "$ENSURE_HF_CLI" != "1" ]]; then
+    echo "ERROR: hf CLI was not found. Load/install huggingface_hub or set ENSURE_HF_CLI=1."
+    exit 1
+  fi
+  if [[ -d "$VENV" ]]; then
+    python -m pip install --upgrade "huggingface_hub[hf_transfer]"
+  else
+    python -m pip install --user --upgrade "huggingface_hub[hf_transfer]"
+  fi
+fi
+
+if ! command -v zstd >/dev/null 2>&1; then
+  echo "ERROR: zstd was not found in PATH. Load a module that provides zstd before rerunning."
+  exit 1
+fi
+
+cd "$ALPHAFAST_DIR"
+
+echo "Installing AlphaFast databases"
+echo "  AlphaFast checkout: $ALPHAFAST_DIR"
+echo "  Target directory:   $TARGET_DIR"
+echo "  Extra setup args:   ${SETUP_ARGS:-<none>}"
+echo ""
+
+# shellcheck disable=SC2086
+./scripts/setup_databases.sh "$TARGET_DIR" $SETUP_ARGS
+
+echo ""
+echo "Checking expected protein database files"
+for db in uniref90_padded mgnify_padded small_bfd_padded uniprot_padded pdb_seqres_padded; do
+  test -f "$TARGET_DIR/mmseqs/${db}.dbtype"
+  echo "  ok: $TARGET_DIR/mmseqs/${db}.dbtype"
+done
+
+test -d "$TARGET_DIR/mmcif_files"
+echo "  ok: $TARGET_DIR/mmcif_files"
+
+cat <<EOF
+
+AlphaFast database install complete.
+
+Use these scaffold_bind_craft settings:
+  "db_dir": "$TARGET_DIR",
+  "mmseqs_db_dir": "$TARGET_DIR/mmseqs",
+  "alphafast_dir": "$ALPHAFAST_DIR"
+EOF
