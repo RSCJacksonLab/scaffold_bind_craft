@@ -15,9 +15,9 @@ set -euo pipefail
 # prebuilt AlphaFast databases; do not use this one-CPU queue for local rebuilds.
 module load python3/3.12.1
 
-ALPHAFAST_DIR="${ALPHAFAST_DIR:-/scratch/xz2/ab8507/scaffold_bind_craft/alphafast}"
-TARGET_DIR="${TARGET_DIR:-/scratch/xz2/ab8507/scaffold_bind_craft/alphafast_databases}"
-VENV="${VENV:-/scratch/xz2/ab8507/scaffold_bind_craft/envs/fast_protenix_alphafast}"
+ALPHAFAST_DIR="${ALPHAFAST_DIR:-/scratch/xz2/ab8507/scaffold_bindcraft/alphafast}"
+TARGET_DIR="${TARGET_DIR:-/scratch/xz2/ab8507/scaffold_bindcraft/alphafast_databases}"
+VENV="${VENV:-/scratch/xz2/ab8507/scaffold_bindcraft/envs/fast_protenix_alphafast}"
 SETUP_ARGS="${SETUP_ARGS:---protein-only}"
 ENSURE_HF_CLI="${ENSURE_HF_CLI:-1}"
 
