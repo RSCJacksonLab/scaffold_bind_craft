@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.config import load_settings, require, resolve_path, stage_dir
-from scaffold_bind_craft.fast_protenix_utils import find_protenix_prediction, write_af3_json
+from scaffold_bind_craft.fast_protenix_utils import find_protenix_predictions, write_af3_json
 from scaffold_bind_craft.io_utils import append_csv, parse_fasta
 from scaffold_bind_craft.pdb_utils import extract_chain_sequences
 
@@ -35,17 +35,21 @@ def sequence_inputs(settings: dict[str, Any]) -> dict[str, str]:
     return dict(extract_chain_sequences(input_pdb, chains=chains))
 
 
-def find_existing_names(stage_out: Path, seed: int, sample_index: int) -> set[str]:
+def find_existing_names(stage_out: Path, seed: int, expected_sample_count: int) -> set[str]:
     names = set()
-    pattern = f"protenix_output/*/seed_{seed}/predictions/*_summary_confidence_sample_{sample_index}.json"
+    pattern = f"protenix_output/*/seed_{seed}/predictions/*_summary_confidence_sample_*.json"
     for json_path in stage_out.glob(pattern):
-        filename = json_path.name
-        suffix = f"_summary_confidence_sample_{sample_index}.json"
-        design_name = filename[: -len(suffix)]
-        cif_path, conf_path = find_protenix_prediction(stage_out, design_name, seed=seed, sample_index=sample_index)
-        if cif_path and conf_path:
+        design_name = json_path.name.split("_summary_confidence_sample_", 1)[0]
+        if len(find_protenix_predictions(stage_out, design_name, seed=seed)) >= expected_sample_count:
             names.add(design_name)
     return names
+
+
+def first_prediction_paths(predictions: list[tuple[int, Path, Path]]) -> tuple[Path | None, Path | None]:
+    if not predictions:
+        return None, None
+    _, cif_path, json_path = predictions[0]
+    return cif_path, json_path
 
 
 def fast_protenix_env(fast: dict[str, Any]) -> dict[str, str]:
@@ -93,9 +97,9 @@ def main() -> int:
     target_sequences = sequence_inputs(settings)
     binder_chain = fast.get("binder_chain", settings.get("binder_chain", "B"))
     seed = int(fast.get("seed", (fast.get("model_seeds") or [101])[0]))
-    sample_index = int(fast.get("sample_index", 0))
+    expected_sample_count = int(fast.get("sample", 1))
     model_seeds = [int(value) for value in (fast.get("model_seeds") or [seed])]
-    existing = find_existing_names(predictions_dir, seed, sample_index)
+    existing = find_existing_names(predictions_dir, seed, expected_sample_count)
 
     designs: list[tuple[str, str, Path, dict[str, str]]] = []
     max_per_backbone = fast.get("max_sequences_per_backbone")
@@ -168,8 +172,9 @@ def main() -> int:
         run_reason = f"{type(exc).__name__}: {exc}"
 
     for design_name, _, input_path, _ in designs:
-        cif_path, json_path = find_protenix_prediction(predictions_dir, design_name, seed=seed, sample_index=sample_index)
-        if cif_path and json_path:
+        predictions = find_protenix_predictions(predictions_dir, design_name, seed=seed)
+        cif_path, json_path = first_prediction_paths(predictions)
+        if len(predictions) >= expected_sample_count:
             status = "completed"
             reason = ""
         elif run_reason:
@@ -177,7 +182,7 @@ def main() -> int:
             reason = run_reason
         else:
             status = "missing_outputs"
-            reason = "Protenix summary confidence JSON or CIF was not found after fast-protenix run"
+            reason = f"Expected {expected_sample_count} Protenix samples, found {len(predictions)}"
         append_csv(
             metrics_csv,
             {
