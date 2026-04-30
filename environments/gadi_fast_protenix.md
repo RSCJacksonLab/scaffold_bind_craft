@@ -138,24 +138,7 @@ module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c gcc/15.1.0
 # run scaffold_bind_craft / Fast Protenix from the AlphaFast env
 source /path/to/install/location/fast_protenix_alphafast/bin/activate
 
-# make sure Protenix can still be found through the absolute settings path
-/path/to/install/location/protenix/bin/protenix --help
-
-# optional runtime temp for MMseqs on a PBS job
-export TMPDIR="${PBS_JOBFS:-/tmp}"
-export MMSEQS_TMP="${PBS_JOBFS:-/tmp}/mmseqs"
-mkdir -p "$MMSEQS_TMP"
-```
-
-For the existing PBS script, set `VENV` to the AlphaFast / Fast Protenix environment:
-
-```
-qsub -v VENV=/path/to/install/location/fast_protenix_alphafast,SETTINGS=/path/to/settings.json scripts/gadi/03_run_fast_protenix.pbs
-```
-
-If `scripts/gadi/03_run_fast_protenix.pbs` still loads `colabfold_batch`, replace that module line with the explicit MMseqs2 module used above:
-
-```
-module use -a /g/data/if89/apps/modulefiles
-module load python3/3.12.1 cuda/12.9.0 MMseqs2/18-8cc5c
+# load protenix
+deactivate
+source protenix/bin/activate
 ```
