@@ -38,9 +38,9 @@ if ! command -v hf >/dev/null 2>&1; then
     exit 1
   fi
   if [[ -d "$VENV" ]]; then
-    python -m pip install --upgrade "huggingface_hub[hf_transfer]"
+    python3 -m pip install --upgrade "huggingface_hub[hf_transfer]"
   else
-    python -m pip install --user --upgrade "huggingface_hub[hf_transfer]"
+    python3 -m pip install --user --upgrade "huggingface_hub[hf_transfer]"
   fi
 fi
 
