@@ -7,9 +7,9 @@
   "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
   "fixed_positions": null,
   "tools": {
-    "colabdesign_path": "/path/to/colabdesign_modified",
-    "alphafold_params_dir": "/path/to/alphafold/params",
-    "proteinmpnn_path": "/path/to/ProteinMPNN"
+    "colabdesign_path": "/scratch/xz2/ab8507/scaffold_bindcraft/colabdesign_modified",
+    "alphafold_params_dir": "/scratch/xz2/colabfold_params/",
+    "proteinmpnn_path": "/scratch/xz2/ab8507/scaffold_bindcraft/ProteinMPNN"
   },
   "stages": {
     "rso": {
@@ -26,12 +26,12 @@
     }
   },
   "rso": {
-    "num_structures": 500,
+    "num_structures": 50,
     "seed": 0,
     "target_chains": "A",
     "binder_chain": "B",
     "fixed_positions": null,
-    "binder_length": null,
+    "binder_length": 62,
     "model": {
       "protocol": "binder",
       "use_multimer": true,
@@ -51,13 +51,13 @@
       }
     },
     "weights": {
-      "pae": 0.4,
+      "pae": 0.1,
       "plddt": 0.1,
       "i_pae": 0.1,
-      "con": 1.0,
-      "i_con": 1.0,
-      "rg": 0.0,
-      "i_ptm": 0.05
+      "con": 0.1,
+      "i_con": 2.0,
+      "rg": 0.3,
+      "i_ptm": 0.0
     },
     "early_stop": {
       "initial_logits_iters": 75,
@@ -66,45 +66,45 @@
       "min_logit_plddt": 0.7,
       "min_soft_plddt": 0.7
     },
-    "logit_iters": 300,
+    "logit_iters": 175,
     "logit_e_soft": 1.0,
-    "soft_iters": 50,
+    "soft_iters": 0,
     "soft_e_temp": 0.01,
-    "hard_iters": 50,
+    "hard_iters": 0,
     "hard_temp": 0.01,
     "semigreedy_iters": 0,
     "semigreedy_tries": 10,
     "save_trajectory": false,
     "save_filters": {
-      "min_plddt": 0.75,
-      "min_iptm": 0.5,
+      "min_plddt": 0.8,
+      "min_iptm": 0.8,
       "max_pae": null,
-      "max_i_pae": 0.35
+      "max_i_pae": 0.20
     },
-    "max_attempts": 10000
+    "max_attempts": 1000
   },
   "proteinmpnn": {
     "chains_to_design": "B",
     "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
-    "num_seq_per_target": 4,
+    "num_seq_per_target": 10,
     "sampling_temp": "0.1",
     "seed": 37,
-    "batch_size": 4,
+    "batch_size": 128,
     "model_name": "v_48_020",
-    "use_soluble_model": true,
+    "use_soluble_model": false,
     "save_score": true,
     "save_probs": true,
     "omit_AAs": "X"
   },
   "fast_protenix": {
-    "path": "../fast_protenix",
+    "path": "/scratch/xz2/ab8507/scaffold_bindcraft/fast_protenix",
     "python": "python3",
-    "db_dir": "/scratch/project/alphafast_public_databases",
-    "mmseqs_db_dir": "/scratch/project/alphafast_mmseqs_databases",
-    "alphafast_dir": "/path/to/alphafast",
+    "db_dir": "/scratch/xz2/ab8507/scaffold_bindcraft/alphafast_databases",
+    "mmseqs_db_dir": "/scratch/xz2/ab8507/scaffold_bindcraft/alphafast_databases/mmseqs",
+    "alphafast_dir": "/scratch/xz2/ab8507/scaffold_bindcraft/alphafast",
     "batch_size": 512,
     "gpu_device": 0,
-    "temp_dir": "/path/to/jobfs",
+    "temp_dir": "${PBS_JOBFS}",
     "run_protenix": true,
     "protenix_bin": "protenix",
     "protenix_model": "protenix_base_default_v1.0.0",
@@ -115,8 +115,7 @@
     "model_seeds": [
       101
     ],
-    "sample": 5,
-    "sample_index": 0,
+    "sample": 2,
     "max_sequences_per_backbone": null,
     "alphafast_args": [],
     "protenix_args": []
@@ -133,15 +132,18 @@
     "rerun_failed": false,
     "filters": {
       "protenix_plddt": {
-        "threshold": 70.0,
+        "all_threshold": 80.0,
+        "average_threshold": 85.0,
         "higher": true
       },
       "protenix_gpde": {
-        "threshold": 10.0,
+        "all_threshold": 10.0,
+        "average_threshold": 10.0,
         "higher": false
       },
       "protenix_iptm": {
-        "threshold": 0.5,
+        "all_threshold": 0.8,
+        "average_threshold": 0.8,
         "higher": true
       },
       "relaxed_clashes": {
@@ -149,12 +151,20 @@
         "higher": false
       },
       "interface_interface_sc": {
-        "threshold": 0.55,
+        "threshold": 0.60,
         "higher": true
       },
       "interface_interface_dSASA": {
         "threshold": 650,
         "higher": true
+      },
+      "interface_interface_interface_hbonds": {
+        "threshold": 3,
+        "higher": true
+      },
+      "interface_interface_delta_unsat_hbonds": {
+        "threshold": 4,
+        "higher": false
       }
     }
   }
