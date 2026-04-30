@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
-from scaffold_bind_craft.fast_protenix_utils import find_protenix_prediction
+from scaffold_bind_craft.fast_protenix_utils import find_protenix_predictions
 from scaffold_bind_craft.io_utils import append_csv, flatten_json, read_csv_rows
 from scaffold_bind_craft.openmm_screen_utils import (
     calculate_clash_score,
@@ -38,11 +38,28 @@ BASE_FIELDS = [
 ]
 
 PREDICTION_FIELDS = [
+    "protenix_selected_sample_index",
+    "protenix_sample_count",
     "protenix_plddt",
+    "protenix_plddt_avg",
+    "protenix_plddt_min",
+    "protenix_plddt_max",
     "protenix_gpde",
+    "protenix_gpde_avg",
+    "protenix_gpde_min",
+    "protenix_gpde_max",
     "protenix_ptm",
+    "protenix_ptm_avg",
+    "protenix_ptm_min",
+    "protenix_ptm_max",
     "protenix_iptm",
+    "protenix_iptm_avg",
+    "protenix_iptm_min",
+    "protenix_iptm_max",
     "protenix_ranking_score",
+    "protenix_ranking_score_avg",
+    "protenix_ranking_score_min",
+    "protenix_ranking_score_max",
     "protenix_has_clash",
 ]
 
@@ -78,37 +95,82 @@ INTERFACE_FIELDS = [
 ]
 
 
-def passes_filters(row: dict[str, Any], filters: dict[str, Any]) -> tuple[bool, str]:
+def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics: dict[str, list[float]] | None = None) -> tuple[bool, str]:
     failed: list[str] = []
     for key, rule in filters.items():
         if not isinstance(rule, dict):
             continue
-        threshold = rule.get("threshold")
-        if threshold is None:
-            continue
-        value = row.get(key)
-        try:
-            numeric = float(value)
-        except Exception:
-            failed.append(f"{key} missing")
-            continue
         higher = bool(rule.get("higher", True))
-        if higher and numeric < float(threshold):
-            failed.append(f"{key} {numeric} < {threshold}")
-        if not higher and numeric > float(threshold):
-            failed.append(f"{key} {numeric} > {threshold}")
+        threshold = rule.get("threshold")
+        if threshold is not None:
+            value = row.get(key)
+            try:
+                numeric = float(value)
+            except Exception:
+                failed.append(f"{key} missing")
+            else:
+                if higher and numeric < float(threshold):
+                    failed.append(f"{key} {numeric} < {threshold}")
+                if not higher and numeric > float(threshold):
+                    failed.append(f"{key} {numeric} > {threshold}")
+
+        average_threshold = rule.get("average_threshold")
+        if average_threshold is not None:
+            avg_key = f"{key}_avg"
+            expected_values = int(row.get("protenix_sample_count", 0) or 0)
+            values = (sample_metrics or {}).get(key, [])
+            if expected_values and values and len(values) < expected_values:
+                failed.append(f"{key} has {len(values)} numeric samples, expected {expected_values}")
+                continue
+            value = row.get(avg_key)
+            try:
+                numeric = float(value)
+            except Exception:
+                failed.append(f"{avg_key} missing")
+            else:
+                if higher and numeric < float(average_threshold):
+                    failed.append(f"{avg_key} {numeric} < {average_threshold}")
+                if not higher and numeric > float(average_threshold):
+                    failed.append(f"{avg_key} {numeric} > {average_threshold}")
+
+        all_threshold = rule.get("all_threshold")
+        if all_threshold is not None:
+            values = (sample_metrics or {}).get(key, [])
+            if not values:
+                failed.append(f"{key} samples missing")
+                continue
+            expected_values = int(row.get("protenix_sample_count", len(values)) or len(values))
+            if len(values) < expected_values:
+                failed.append(f"{key} has {len(values)} numeric samples, expected {expected_values}")
+                continue
+            bad_values = [value for value in values if value < float(all_threshold)] if higher else [
+                value for value in values if value > float(all_threshold)
+            ]
+            if bad_values:
+                op = ">=" if higher else "<="
+                failed.append(f"{key} all samples not {op} {all_threshold}: {bad_values}")
     return (not failed, "; ".join(failed))
 
 
-def find_prediction_names(predictions_out: Path, seed: int, sample_index: int) -> list[str]:
+def protenix_filters(filters: dict[str, Any]) -> dict[str, Any]:
+    return {key: rule for key, rule in filters.items() if key.startswith("protenix_")}
+
+
+def non_protenix_filters(filters: dict[str, Any]) -> dict[str, Any]:
+    return {key: rule for key, rule in filters.items() if not key.startswith("protenix_")}
+
+
+def find_prediction_names(predictions_out: Path, seed: int) -> list[str]:
     names: set[str] = set()
-    pattern = f"protenix_output/*/seed_{seed}/predictions/*_summary_confidence_sample_{sample_index}.json"
-    for json_path in predictions_out.glob(pattern):
-        suffix = f"_summary_confidence_sample_{sample_index}.json"
-        design_name = json_path.name[: -len(suffix)]
-        cif_path, conf_path = find_protenix_prediction(predictions_out, design_name, seed=seed, sample_index=sample_index)
-        if cif_path and conf_path:
-            names.add(design_name)
+    patterns = [
+        f"protenix_output/*/seed_{seed}/predictions/*_summary_confidence_sample_*.json",
+        f"*/seed_{seed}/predictions/*_summary_confidence_sample_*.json",
+    ]
+    for pattern in patterns:
+        for json_path in predictions_out.glob(pattern):
+            design_name = json_path.name.split("_summary_confidence_sample_", 1)[0]
+            if find_protenix_predictions(predictions_out, design_name, seed=seed):
+                names.add(design_name)
     return sorted(names)
 
 
@@ -151,6 +213,34 @@ def add_protenix_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]
         row["boltz_iptm"] = confidence["iptm"]
 
 
+def numeric_confidence_metrics(confidence: dict[str, Any]) -> dict[str, float]:
+    mapping = {
+        "plddt": "protenix_plddt",
+        "gpde": "protenix_gpde",
+        "ptm": "protenix_ptm",
+        "iptm": "protenix_iptm",
+        "ranking_score": "protenix_ranking_score",
+    }
+    metrics: dict[str, float] = {}
+    for source, dest in mapping.items():
+        if source not in confidence:
+            continue
+        try:
+            metrics[dest] = float(confidence[source])
+        except (TypeError, ValueError):
+            continue
+    return metrics
+
+
+def add_protenix_sample_aggregates(row: dict[str, Any], sample_metrics: dict[str, list[float]]) -> None:
+    for key, values in sample_metrics.items():
+        if not values:
+            continue
+        row[f"{key}_avg"] = round(sum(values) / len(values), 4)
+        row[f"{key}_min"] = round(min(values), 4)
+        row[f"{key}_max"] = round(max(values), 4)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Relax Fast Protenix predictions with OpenMM and screen interfaces.")
     parser.add_argument("--settings", required=True)
@@ -170,8 +260,8 @@ def main() -> int:
     fast_settings = settings.get("fast_protenix", {})
     fast_out = stage_dir(settings, "fast_protenix")
     seed = int(fast_settings.get("seed", (fast_settings.get("model_seeds") or [101])[0]))
-    sample_index = int(fast_settings.get("sample_index", 0))
-    names = find_prediction_names(fast_out, seed, sample_index)
+    expected_sample_count = int(fast_settings["sample"]) if "sample" in fast_settings else None
+    names = find_prediction_names(fast_out, seed)
     metrics_csv = out / "screening_metrics.csv"
     done = processed_names(metrics_csv, bool(screen.get("rerun_failed", False)))
     pending = [name for name in names if name not in done]
@@ -188,21 +278,66 @@ def main() -> int:
 
     for design_name in pending:
         start = time.time()
-        cif_path, conf_path = find_protenix_prediction(fast_out, design_name, seed=seed, sample_index=sample_index)
+        cif_path: Path | None = None
+        conf_path: Path | None = None
         row: dict[str, Any] = {"design_name": design_name}
         try:
-            if not cif_path or not conf_path:
+            predictions = find_protenix_predictions(fast_out, design_name, seed=seed)
+            if not predictions:
                 raise FileNotFoundError("Protenix CIF/confidence JSON not found")
-            with Path(conf_path).open() as handle:
-                confidence = json.load(handle)
+            if expected_sample_count is not None and len(predictions) < expected_sample_count:
+                raise FileNotFoundError(
+                    f"Expected {expected_sample_count} Protenix samples, found {len(predictions)}"
+                )
+
+            sample_records: list[tuple[int, Path, Path, dict[str, Any], dict[str, float]]] = []
+            sample_metrics: dict[str, list[float]] = {}
+            for sample_index, sample_cif, sample_conf_path in predictions:
+                with sample_conf_path.open() as handle:
+                    sample_confidence = json.load(handle)
+                numeric_metrics = numeric_confidence_metrics(sample_confidence)
+                sample_records.append((sample_index, sample_cif, sample_conf_path, sample_confidence, numeric_metrics))
+                for key, value in numeric_metrics.items():
+                    sample_metrics.setdefault(key, []).append(value)
+
+            selectable = [record for record in sample_records if "protenix_iptm" in record[4]]
+            if selectable:
+                selected = max(selectable, key=lambda record: record[4]["protenix_iptm"])
+            else:
+                selected = sample_records[0]
+            selected_sample_index, cif_path, conf_path, confidence, _ = selected
+
+            row["protenix_selected_sample_index"] = selected_sample_index
+            row["protenix_sample_count"] = len(sample_records)
+            add_protenix_sample_aggregates(row, sample_metrics)
+
             flat_conf: dict[str, Any] = {}
             flatten_json("protenix", confidence, flat_conf)
             row.update({key: value for key, value in flat_conf.items() if key in PREDICTION_FIELDS})
             add_protenix_summary_metrics(row, confidence)
 
+            passed, reason = passes_filters(row, protenix_filters(filters), sample_metrics)
+            if not passed:
+                row.update(
+                    {
+                        "status": "filtered",
+                        "sequence": "",
+                        "input_cif": str(cif_path),
+                        "unrelaxed_pdb": "",
+                        "relaxed_pdb": "",
+                        "unrelaxed_clashes": "",
+                        "relaxed_clashes": "",
+                        "reason": reason,
+                    }
+                )
+                row["elapsed_seconds"] = round(time.time() - start, 2)
+                append_csv(metrics_csv, row, fields)
+                print(f"{design_name}: {row['status']} {row.get('reason', '')}")
+                continue
+
             sequence = extract_chain_sequences(cif_path, [str(binder_chain)]).get(str(binder_chain), "")
-            unrelaxed_pdb = cif_to_pdb(cif_path, pdb_dir / f"{design_name}.pdb")
-            relaxed_pdb = relaxed_dir / f"{design_name}_openmm_relaxed.pdb"
+            unrelaxed_pdb = cif_to_pdb(cif_path, pdb_dir / f"{design_name}_sample{selected_sample_index}.pdb")
+            relaxed_pdb = relaxed_dir / f"{design_name}_sample{selected_sample_index}_openmm_relaxed.pdb"
             if not relaxed_pdb.exists() or relaxed_pdb.stat().st_size == 0:
                 openmm_relax_subprocess(
                     str(unrelaxed_pdb),
@@ -238,7 +373,7 @@ def main() -> int:
                     "reason": "",
                 }
             )
-            passed, reason = passes_filters(row, filters)
+            passed, reason = passes_filters(row, non_protenix_filters(filters), sample_metrics)
             if not passed:
                 row["status"] = "filtered"
                 row["reason"] = reason
