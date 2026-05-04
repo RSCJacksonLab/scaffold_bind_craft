@@ -169,8 +169,9 @@ find ./esmfold -type d -exec chmod g+s {} +
 # Check inode usage before cleaning.
 find ./esmfold -xdev -printf '.' | wc -c
 
-find ./esmfold -type d -name "doc*" -exec rm -rf {} +
-find ./esmfold -type d -name "tests" -exec rm -rf {} +
+# Safe deployment cleanup: remove generated caches only.
+# Do not delete package directories such as "tests" or "doc*"; some packages
+# import from those directories at runtime.
 find ./esmfold -type d -name "__pycache__" -exec rm -rf {} +
 find ./esmfold -name "*.pyc" -delete
 find ./esmfold -name "*.pyo" -delete

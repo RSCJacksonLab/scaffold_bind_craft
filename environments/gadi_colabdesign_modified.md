@@ -28,14 +28,10 @@ chmod g+ws ./colabdesign_modified
 # check inode usage before cleaning
 find ./colabdesign_modified -xdev -printf '.' | wc -c
 
-# Remove documentation directories
-find ./colabdesign_modified -type d -name "doc*" -exec rm -rf {} +
-
-
-# Remove Python cache files
+# Safe deployment cleanup: remove generated caches only.
+# Do not delete package directories such as "tests" or "doc*"; some packages
+# import from those directories at runtime.
 find ./colabdesign_modified -type d -name "__pycache__" -exec rm -rf {} +
-
-# Remove additional cache and temp files
 find ./colabdesign_modified -name "*.pyc" -delete
 find ./colabdesign_modified -name "*.pyo" -delete
 find ./colabdesign_modified -name ".DS_Store" -delete

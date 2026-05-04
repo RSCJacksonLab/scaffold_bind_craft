@@ -96,16 +96,10 @@ find ./openmm_screen -type d -exec chmod g+s {} +
 # check inode usage before cleaning
 find ./openmm_screen -xdev -printf '.' | wc -c
 
-# Remove documentation directories
-find ./openmm_screen -type d -name "doc*" -exec rm -rf {} +
-
-# Remove test directories
-find ./openmm_screen -type d -name "tests" -exec rm -rf {} +
-
-# Remove Python cache files
+# Safe deployment cleanup: remove generated caches only.
+# Do not delete package directories such as "tests" or "doc*"; some packages
+# import from those directories at runtime.
 find ./openmm_screen -type d -name "__pycache__" -exec rm -rf {} +
-
-# Remove additional cache and temp files
 find ./openmm_screen -name "*.pyc" -delete
 find ./openmm_screen -name "*.pyo" -delete
 find ./openmm_screen -name ".DS_Store" -delete

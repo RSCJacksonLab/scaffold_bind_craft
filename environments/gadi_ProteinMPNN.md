@@ -35,16 +35,10 @@ chmod g+ws ./pmpnn
 # check inode usage before cleaning
 find ./pmpnn -xdev -printf '.' | wc -c
 
-# Remove documentation directories
-find ./pmpnn -type d -name "doc*" -exec rm -rf {} +
-
-# Remove test directories  
-find ./pmpnn -type d -name "tests" -exec rm -rf {} +
-
-# Remove Python cache files
+# Safe deployment cleanup: remove generated caches only.
+# Do not delete package directories such as "tests" or "doc*"; some packages
+# import from those directories at runtime.
 find ./pmpnn -type d -name "__pycache__" -exec rm -rf {} +
-
-# Remove additional cache and temp files
 find ./pmpnn -name "*.pyc" -delete
 find ./pmpnn -name "*.pyo" -delete
 find ./pmpnn -name ".DS_Store" -delete
