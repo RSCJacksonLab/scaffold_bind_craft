@@ -45,22 +45,6 @@ source esmfold/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 ```
 
-Install PyTorch first. Use the wheel/channel that matches the CUDA module and
-the current NCI recommendation for Gadi. Confirm CUDA is visible before
-installing ESMFold dependencies.
-
-```bash
-# Example only: choose the current CUDA-compatible PyTorch command for Gadi.
-python -m pip install torch
-
-python - <<'PY'
-import torch
-print("torch", torch.__version__)
-print("cuda available", torch.cuda.is_available())
-print("cuda", torch.version.cuda)
-PY
-```
-
 Install ESMFold and the OpenFold dependencies following the upstream ESM README:
 
 ```bash
