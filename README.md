@@ -4,8 +4,8 @@ Modular scaffold binder design pipeline with restartable HPC stages:
 
 1. `scripts/run_colabdesign_rso.py` performs relaxed sequence optimisation with `colabdesign_modified`, fixed residue support, pLDDT early stopping, and RSO save filters for iPTM, pLDDT, PAE, and interface PAE.
 2. `scripts/run_proteinmpnn.py` runs ProteinMPNN on accepted RSO structures and designs only the relaxed positions.
-3. `scripts/run_fast_protenix.py` converts ProteinMPNN FASTA outputs into AlphaFold 3-style JSON inputs and runs pending predictions through `../fast_protenix`.
-4. `scripts/run_openmm_screen.py` converts Protenix CIFs to PDB, runs the local OpenMM relax path, scores interfaces with PyRosetta-free utilities, and writes accepted relaxed structures.
+3. `scripts/run_esmfold.py` predicts pending ProteinMPNN binder-target sequences with ESMFold.
+4. `scripts/run_openmm_screen.py` relaxes ESMFold PDBs with the local OpenMM path, scores interfaces with PyRosetta-free utilities, and writes accepted relaxed structures.
 
 Each script takes the same settings file and creates one subdirectory under `output_dir`. Existing outputs are counted before work starts, so a time-limited HPC job can be resubmitted without restarting completed work.
 
@@ -13,7 +13,7 @@ Each script takes the same settings file and creates one subdirectory under `out
 You need 4 environments:
 1. Colabdesign_modified
 2. ProteinMPNN
-3. Fast_Protenix
+3. ESMFold
 4. OpenMM
 
 
@@ -24,7 +24,7 @@ Edit `settings/example.json`, then run each stage independently:
 ```bash
 python3 scripts/run_colabdesign_rso.py --settings settings/my_run.json --limit 50
 python3 scripts/run_proteinmpnn.py --settings settings/my_run.json --limit 50
-python3 scripts/run_fast_protenix.py --settings settings/my_run.json --limit 100
+python3 scripts/run_esmfold.py --settings settings/my_run.json --limit 100
 python3 scripts/run_openmm_screen.py --settings settings/my_run.json --limit 100
 ```
 
@@ -46,12 +46,11 @@ output_dir/
     scores/
     probs/
     proteinmpnn_metrics.csv
-  03_fast_protenix/
-    af3_inputs/
-    alphafast_data/
-    protenix_msas/
-    protenix_output/
-    fast_protenix_metrics.csv
+  03_esmfold/
+    inputs/
+    predictions/
+    metrics/
+    esmfold_metrics.csv
   04_openmm_screen/
     pdbs/
     relaxed_pdbs/
@@ -62,7 +61,7 @@ output_dir/
 ## Notes
 
 - RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
-- Fast Protenix target sequences can be set explicitly with `fast_protenix.target_sequences`. If omitted, they are extracted from `input_pdb` for `fast_protenix.target_chains`.
-- Fast Protenix uses `../fast_protenix` by default through `python -m fast_protenix.cli`, so the stage can run from the adjacent checkout without installing a console script. Configure `fast_protenix.db_dir`, `fast_protenix.mmseqs_db_dir`, and `fast_protenix.alphafast_dir` for the AlphaFast preprocessing step. Set `fast_protenix.protenix_weights_dir` to the directory containing Protenix checkpoint files, such as `protenix_base_default_v1.0.0.pt`, when running from manually downloaded weights.
-- Screening records Protenix confidence fields as `protenix_plddt`, `protenix_gpde`, `protenix_ptm`, `protenix_iptm`, `protenix_ranking_score`, and `protenix_has_clash` for the sample with the highest Protenix `iptm`. It also records `*_avg`, `*_min`, and `*_max` aggregates across all samples. Protenix filter rules can use `threshold` for the selected sample, `all_threshold` for every sample, and `average_threshold` for the sample average. Compatibility aliases for selected old `boltz_*` columns are also written for older CSV consumers.
+- ESMFold target sequences can be set explicitly with `esmfold.target_sequences`. If omitted, they are extracted from `input_pdb` for `esmfold.target_chains`.
+- ESMFold runs in the active Python environment and expects `fair-esm[esmfold]` plus PyTorch. Set `esmfold.gpu_device`, `esmfold.device`, `esmfold.chunk_size`, and `esmfold.num_recycles` as needed for the hardware.
+- Screening records ESMFold confidence fields as `esmfold_plddt`, `esmfold_binder_plddt`, `esmfold_target_plddt`, and `esmfold_chain_count`. ESMFold filter rules use `threshold`.
 - OpenMM screening is self-contained in `scaffold_bind_craft.openmm_screen_utils` and `scaffold_bind_craft.hbond_utils`. It records structure-specific binder-target H-bonds and approximate buried unsatisfied polar atoms from the relaxed PDB.

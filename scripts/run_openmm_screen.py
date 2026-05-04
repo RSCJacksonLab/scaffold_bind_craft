@@ -14,21 +14,21 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
-from scaffold_bind_craft.fast_protenix_utils import find_protenix_predictions
+from scaffold_bind_craft.esmfold_utils import find_esmfold_prediction, find_esmfold_predictions
 from scaffold_bind_craft.io_utils import append_csv, flatten_json, read_csv_rows
 from scaffold_bind_craft.openmm_screen_utils import (
     calculate_clash_score,
     openmm_relax_subprocess,
     pr_alternative_score_interface,
 )
-from scaffold_bind_craft.pdb_utils import cif_to_pdb, extract_chain_sequences
+from scaffold_bind_craft.pdb_utils import extract_chain_sequences
 
 
 BASE_FIELDS = [
     "design_name",
     "status",
     "sequence",
-    "input_cif",
+    "input_prediction",
     "unrelaxed_pdb",
     "relaxed_pdb",
     "unrelaxed_clashes",
@@ -38,41 +38,10 @@ BASE_FIELDS = [
 ]
 
 PREDICTION_FIELDS = [
-    "protenix_selected_sample_index",
-    "protenix_sample_count",
-    "protenix_plddt",
-    "protenix_plddt_avg",
-    "protenix_plddt_min",
-    "protenix_plddt_max",
-    "protenix_gpde",
-    "protenix_gpde_avg",
-    "protenix_gpde_min",
-    "protenix_gpde_max",
-    "protenix_ptm",
-    "protenix_ptm_avg",
-    "protenix_ptm_min",
-    "protenix_ptm_max",
-    "protenix_iptm",
-    "protenix_iptm_avg",
-    "protenix_iptm_min",
-    "protenix_iptm_max",
-    "protenix_ranking_score",
-    "protenix_ranking_score_avg",
-    "protenix_ranking_score_min",
-    "protenix_ranking_score_max",
-    "protenix_has_clash",
-]
-
-BOLTZ_COMPAT_FIELDS = [
-    "boltz_plddt",
-    "boltz_pae",
-    "boltz_ptm",
-    "boltz_iptm",
-    "boltz_complex_plddt",
-    "boltz_complex_iplddt",
-    "boltz_complex_pde",
-    "boltz_complex_ipde",
-    "boltz_ptmenergy",
+    "esmfold_plddt",
+    "esmfold_binder_plddt",
+    "esmfold_target_plddt",
+    "esmfold_chain_count",
 ]
 
 INTERFACE_FIELDS = [
@@ -117,7 +86,7 @@ def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics:
         average_threshold = rule.get("average_threshold")
         if average_threshold is not None:
             avg_key = f"{key}_avg"
-            expected_values = int(row.get("protenix_sample_count", 0) or 0)
+            expected_values = int(row.get("prediction_sample_count", 0) or 0)
             values = (sample_metrics or {}).get(key, [])
             if expected_values and values and len(values) < expected_values:
                 failed.append(f"{key} has {len(values)} numeric samples, expected {expected_values}")
@@ -139,7 +108,7 @@ def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics:
             if not values:
                 failed.append(f"{key} samples missing")
                 continue
-            expected_values = int(row.get("protenix_sample_count", len(values)) or len(values))
+            expected_values = int(row.get("prediction_sample_count", len(values)) or len(values))
             if len(values) < expected_values:
                 failed.append(f"{key} has {len(values)} numeric samples, expected {expected_values}")
                 continue
@@ -152,26 +121,17 @@ def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics:
     return (not failed, "; ".join(failed))
 
 
-def protenix_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    return {key: rule for key, rule in filters.items() if key.startswith("protenix_")}
+def esmfold_filters(filters: dict[str, Any]) -> dict[str, Any]:
+    return {key: rule for key, rule in filters.items() if key.startswith("esmfold_")}
 
 
-def non_protenix_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    return {key: rule for key, rule in filters.items() if not key.startswith("protenix_")}
+def post_prediction_filters(filters: dict[str, Any]) -> dict[str, Any]:
+    prediction_prefixes = ("esmfold_", "protenix_", "boltz_")
+    return {key: rule for key, rule in filters.items() if not key.startswith(prediction_prefixes)}
 
 
-def find_prediction_names(predictions_out: Path, seed: int) -> list[str]:
-    names: set[str] = set()
-    patterns = [
-        f"protenix_output/*/seed_{seed}/predictions/*_summary_confidence_sample_*.json",
-        f"*/seed_{seed}/predictions/*_summary_confidence_sample_*.json",
-    ]
-    for pattern in patterns:
-        for json_path in predictions_out.glob(pattern):
-            design_name = json_path.name.split("_summary_confidence_sample_", 1)[0]
-            if find_protenix_predictions(predictions_out, design_name, seed=seed):
-                names.add(design_name)
-    return sorted(names)
+def find_prediction_names(predictions_out: Path) -> list[str]:
+    return [design_name for design_name, _, _ in find_esmfold_predictions(predictions_out)]
 
 
 def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
@@ -184,65 +144,20 @@ def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
     return done
 
 
-def add_protenix_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -> None:
+def add_esmfold_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -> None:
     mapping = {
-        "plddt": "protenix_plddt",
-        "gpde": "protenix_gpde",
-        "ptm": "protenix_ptm",
-        "iptm": "protenix_iptm",
-        "ranking_score": "protenix_ranking_score",
-        "has_clash": "protenix_has_clash",
+        "plddt": "esmfold_plddt",
+        "binder_plddt": "esmfold_binder_plddt",
+        "target_plddt": "esmfold_target_plddt",
+        "chain_count": "esmfold_chain_count",
     }
     for source, dest in mapping.items():
         if source in confidence:
             row[dest] = confidence[source]
 
-    # Compatibility aliases keep older downstream CSV consumers useful, while
-    # new filters should prefer the protenix_* fields above.
-    if "plddt" in confidence:
-        try:
-            plddt = float(confidence["plddt"])
-            row["boltz_plddt"] = round(plddt / 100.0 if plddt > 1.0 else plddt, 4)
-        except (TypeError, ValueError):
-            pass
-    if "gpde" in confidence:
-        row["boltz_pae"] = confidence["gpde"]
-    if "ptm" in confidence:
-        row["boltz_ptm"] = confidence["ptm"]
-    if "iptm" in confidence:
-        row["boltz_iptm"] = confidence["iptm"]
-
-
-def numeric_confidence_metrics(confidence: dict[str, Any]) -> dict[str, float]:
-    mapping = {
-        "plddt": "protenix_plddt",
-        "gpde": "protenix_gpde",
-        "ptm": "protenix_ptm",
-        "iptm": "protenix_iptm",
-        "ranking_score": "protenix_ranking_score",
-    }
-    metrics: dict[str, float] = {}
-    for source, dest in mapping.items():
-        if source not in confidence:
-            continue
-        try:
-            metrics[dest] = float(confidence[source])
-        except (TypeError, ValueError):
-            continue
-    return metrics
-
-
-def add_protenix_sample_aggregates(row: dict[str, Any], sample_metrics: dict[str, list[float]]) -> None:
-    for key, values in sample_metrics.items():
-        if not values:
-            continue
-        row[f"{key}_avg"] = round(sum(values) / len(values), 4)
-        row[f"{key}_min"] = round(min(values), 4)
-        row[f"{key}_max"] = round(max(values), 4)
-
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Relax Fast Protenix predictions with OpenMM and screen interfaces.")
+    parser = argparse.ArgumentParser(description="Relax ESMFold predictions with OpenMM and screen interfaces.")
     parser.add_argument("--settings", required=True)
     parser.add_argument("--output-dir")
     parser.add_argument("--limit", type=int, default=None, help="Maximum pending predictions to screen in this run.")
@@ -257,11 +172,8 @@ def main() -> int:
     for path in (pdb_dir, relaxed_dir, accepted_dir):
         path.mkdir(parents=True, exist_ok=True)
 
-    fast_settings = settings.get("fast_protenix", {})
-    fast_out = stage_dir(settings, "fast_protenix")
-    seed = int(fast_settings.get("seed", (fast_settings.get("model_seeds") or [101])[0]))
-    expected_sample_count = int(fast_settings["sample"]) if "sample" in fast_settings else None
-    names = find_prediction_names(fast_out, seed)
+    esmfold_out = stage_dir(settings, "esmfold")
+    names = find_prediction_names(esmfold_out)
     metrics_csv = out / "screening_metrics.csv"
     done = processed_names(metrics_csv, bool(screen.get("rerun_failed", False)))
     pending = [name for name in names if name not in done]
@@ -271,58 +183,36 @@ def main() -> int:
     if not pending:
         return 0
 
-    fields = BASE_FIELDS + PREDICTION_FIELDS + BOLTZ_COMPAT_FIELDS + INTERFACE_FIELDS
+    fields = BASE_FIELDS + PREDICTION_FIELDS + INTERFACE_FIELDS
     binder_chain = screen.get("binder_chain", settings.get("binder_chain", "B"))
     target_chain = screen.get("target_chain", "A")
     filters = screen.get("filters", {})
 
     for design_name in pending:
         start = time.time()
-        cif_path: Path | None = None
-        conf_path: Path | None = None
+        prediction_path: Path | None = None
+        metrics_path: Path | None = None
         row: dict[str, Any] = {"design_name": design_name}
         try:
-            predictions = find_protenix_predictions(fast_out, design_name, seed=seed)
-            if not predictions:
-                raise FileNotFoundError("Protenix CIF/confidence JSON not found")
-            if expected_sample_count is not None and len(predictions) < expected_sample_count:
-                raise FileNotFoundError(
-                    f"Expected {expected_sample_count} Protenix samples, found {len(predictions)}"
-                )
-
-            sample_records: list[tuple[int, Path, Path, dict[str, Any], dict[str, float]]] = []
             sample_metrics: dict[str, list[float]] = {}
-            for sample_index, sample_cif, sample_conf_path in predictions:
-                with sample_conf_path.open() as handle:
-                    sample_confidence = json.load(handle)
-                numeric_metrics = numeric_confidence_metrics(sample_confidence)
-                sample_records.append((sample_index, sample_cif, sample_conf_path, sample_confidence, numeric_metrics))
-                for key, value in numeric_metrics.items():
-                    sample_metrics.setdefault(key, []).append(value)
-
-            selectable = [record for record in sample_records if "protenix_iptm" in record[4]]
-            if selectable:
-                selected = max(selectable, key=lambda record: record[4]["protenix_iptm"])
-            else:
-                selected = sample_records[0]
-            selected_sample_index, cif_path, conf_path, confidence, _ = selected
-
-            row["protenix_selected_sample_index"] = selected_sample_index
-            row["protenix_sample_count"] = len(sample_records)
-            add_protenix_sample_aggregates(row, sample_metrics)
+            prediction_path, metrics_path = find_esmfold_prediction(esmfold_out, design_name)
+            if not prediction_path or not metrics_path:
+                raise FileNotFoundError("ESMFold PDB/metrics JSON not found")
+            with metrics_path.open() as handle:
+                confidence = json.load(handle)
 
             flat_conf: dict[str, Any] = {}
-            flatten_json("protenix", confidence, flat_conf)
+            flatten_json("esmfold", confidence, flat_conf)
             row.update({key: value for key, value in flat_conf.items() if key in PREDICTION_FIELDS})
-            add_protenix_summary_metrics(row, confidence)
+            add_esmfold_summary_metrics(row, confidence)
 
-            passed, reason = passes_filters(row, protenix_filters(filters), sample_metrics)
+            passed, reason = passes_filters(row, esmfold_filters(filters), sample_metrics)
             if not passed:
                 row.update(
                     {
                         "status": "filtered",
                         "sequence": "",
-                        "input_cif": str(cif_path),
+                        "input_prediction": str(prediction_path),
                         "unrelaxed_pdb": "",
                         "relaxed_pdb": "",
                         "unrelaxed_clashes": "",
@@ -335,9 +225,11 @@ def main() -> int:
                 print(f"{design_name}: {row['status']} {row.get('reason', '')}")
                 continue
 
-            sequence = extract_chain_sequences(cif_path, [str(binder_chain)]).get(str(binder_chain), "")
-            unrelaxed_pdb = cif_to_pdb(cif_path, pdb_dir / f"{design_name}_sample{selected_sample_index}.pdb")
-            relaxed_pdb = relaxed_dir / f"{design_name}_sample{selected_sample_index}_openmm_relaxed.pdb"
+            sequence = extract_chain_sequences(prediction_path, [str(binder_chain)]).get(str(binder_chain), "")
+            unrelaxed_pdb = pdb_dir / f"{design_name}_esmfold.pdb"
+            if not unrelaxed_pdb.exists() or unrelaxed_pdb.stat().st_size == 0:
+                shutil.copy2(prediction_path, unrelaxed_pdb)
+            relaxed_pdb = relaxed_dir / f"{design_name}_esmfold_openmm_relaxed.pdb"
             if not relaxed_pdb.exists() or relaxed_pdb.stat().st_size == 0:
                 openmm_relax_subprocess(
                     str(unrelaxed_pdb),
@@ -365,7 +257,7 @@ def main() -> int:
                 {
                     "status": "accepted",
                     "sequence": sequence,
-                    "input_cif": str(cif_path),
+                    "input_prediction": str(prediction_path),
                     "unrelaxed_pdb": str(unrelaxed_pdb),
                     "relaxed_pdb": str(relaxed_pdb),
                     "unrelaxed_clashes": unrelaxed_clashes,
@@ -373,7 +265,7 @@ def main() -> int:
                     "reason": "",
                 }
             )
-            passed, reason = passes_filters(row, non_protenix_filters(filters), sample_metrics)
+            passed, reason = passes_filters(row, post_prediction_filters(filters), sample_metrics)
             if not passed:
                 row["status"] = "filtered"
                 row["reason"] = reason
@@ -384,7 +276,7 @@ def main() -> int:
                 {
                     "status": "failed",
                     "sequence": row.get("sequence", ""),
-                    "input_cif": str(cif_path or ""),
+                    "input_prediction": str(prediction_path or ""),
                     "unrelaxed_pdb": "",
                     "relaxed_pdb": "",
                     "unrelaxed_clashes": "",

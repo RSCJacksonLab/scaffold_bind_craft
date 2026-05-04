@@ -18,8 +18,8 @@
     "proteinmpnn": {
       "dir": "02_proteinmpnn"
     },
-    "fast_protenix": {
-      "dir": "03_fast_protenix"
+    "esmfold": {
+      "dir": "03_esmfold"
     },
     "openmm": {
       "dir": "04_openmm_screen"
@@ -96,30 +96,14 @@
     "save_probs": true,
     "omit_AAs": "X"
   },
-  "fast_protenix": {
-    "path": "/scratch/xz2/ab8507/scaffold_bindcraft/fast_protenix",
-    "python": "python3",
-    "db_dir": "/scratch/xz2/ab8507/scaffold_bindcraft/alphafast_databases",
-    "mmseqs_db_dir": "/scratch/xz2/ab8507/scaffold_bindcraft/alphafast_databases/mmseqs",
-    "alphafast_dir": "/scratch/xz2/ab8507/scaffold_bindcraft/alphafast",
-    "batch_size": 512,
+  "esmfold": {
     "gpu_device": 0,
-    "temp_dir": "${PBS_JOBFS}",
-    "run_protenix": true,
-    "protenix_bin": "protenix",
-    "protenix_model": "protenix_base_default_v1.0.0",
-    "protenix_weights_dir": null,
     "target_chains": "A",
     "target_sequences": null,
     "binder_chain": "B",
-    "seed": 101,
-    "model_seeds": [
-      101
-    ],
-    "sample": 2,
-    "max_sequences_per_backbone": null,
-    "alphafast_args": [],
-    "protenix_args": []
+    "chunk_size": 128,
+    "num_recycles": null,
+    "max_sequences_per_backbone": null
   },
   "screening": {
     "binder_chain": "B",
@@ -132,19 +116,12 @@
     "sasa_engine": "auto",
     "rerun_failed": false,
     "filters": {
-      "protenix_plddt": {
-        "all_threshold": 80.0,
-        "average_threshold": 85.0,
+      "esmfold_plddt": {
+        "threshold": 80.0,
         "higher": true
       },
-      "protenix_gpde": {
-        "all_threshold": 10.0,
-        "average_threshold": 10.0,
-        "higher": false
-      },
-      "protenix_iptm": {
-        "all_threshold": 0.8,
-        "average_threshold": 0.8,
+      "esmfold_binder_plddt": {
+        "threshold": 80.0,
         "higher": true
       },
       "relaxed_clashes": {
