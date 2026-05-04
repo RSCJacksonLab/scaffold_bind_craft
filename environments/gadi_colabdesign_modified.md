@@ -31,8 +31,6 @@ find ./colabdesign_modified -xdev -printf '.' | wc -c
 # Remove documentation directories
 find ./colabdesign_modified -type d -name "doc*" -exec rm -rf {} +
 
-# Remove test directories  
-find ./colabdesign_modified -type d -name "tests" -exec rm -rf {} +
 
 # Remove Python cache files
 find ./colabdesign_modified -type d -name "__pycache__" -exec rm -rf {} +

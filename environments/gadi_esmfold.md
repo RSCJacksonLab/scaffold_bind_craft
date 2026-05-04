@@ -13,6 +13,9 @@ Upstream ESM notes used for this environment:
   by `:`.
 - `model.set_chunk_size(128)` is the documented memory-saving option; lower
   values reduce memory further at the cost of speed.
+- `esmfold_v1()` downloads `esmfold_3B_v1.pt` from
+  `https://dl.fbaipublicfiles.com/fair-esm/models/esmfold_3B_v1.pt` through
+  `torch.hub` when the checkpoint is not already present.
 
 References:
 
@@ -45,17 +48,63 @@ source esmfold/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 ```
 
-Install ESMFold and the OpenFold dependencies following the upstream ESM README:
+Install PyTorch first. Use the wheel/channel that matches the CUDA module and
+the current NCI recommendation for Gadi. Confirm CUDA is visible before
+installing ESMFold dependencies.
+
+```bash
+# Example only: choose the current CUDA-compatible PyTorch command for Gadi.
+python -m pip install torch
+
+python - <<'PY'
+import torch
+print("torch", torch.__version__)
+print("cuda available", torch.cuda.is_available())
+print("cuda", torch.version.cuda)
+PY
+```
+
+Install ESMFold and the OpenFold dependencies following the upstream ESM README.
+Install OpenFold with build isolation disabled; its setup imports `torch`, and
+pip's isolated build environment cannot see the Torch package already installed
+in the `esmfold` venv.
 
 ```bash
 python -m pip install "fair-esm[esmfold]"
 python -m pip install 'dllogger @ git+https://github.com/NVIDIA/dllogger.git'
-python -m pip install 'openfold @ git+https://github.com/aqlaboratory/openfold.git@4b41059694619831a7db195b7e0988fc4ff3a307'
+python -m pip install --no-build-isolation 'openfold @ git+https://github.com/aqlaboratory/openfold.git@4b41059694619831a7db195b7e0988fc4ff3a307'
 ```
 
-Validate the install with the same Python API used by `run_esmfold.py`:
+If OpenFold fails with `ModuleNotFoundError: No module named 'torch'` while
+`pip list` shows Torch is installed, rerun only the OpenFold command with
+`--no-build-isolation`.
+
+## Step 2: Download Weights On copyq
+
+Gadi compute queues generally do not have external network access. Download the
+ESMFold checkpoint on `copyq` before running GPU jobs:
 
 ```bash
+cd /path/to/repos/scaffold_bind_craft
+qsub -v TORCH_HOME=/scratch/xz2/$USER/torch_cache environments/00_download_esmfold_weights_copyq.pbs
+```
+
+This writes:
+
+```text
+/scratch/xz2/$USER/torch_cache/hub/checkpoints/esmfold_3B_v1.pt
+```
+
+That path matches `torch.hub` lookup when `TORCH_HOME=/scratch/xz2/$USER/torch_cache`.
+
+The first validation run below also checks that ESMFold can read the downloaded
+checkpoint. It should not need network if `TORCH_HOME` points at the cache filled
+by the copyq job.
+
+```bash
+export TORCH_HOME=/scratch/xz2/$USER/torch_cache
+export XDG_CACHE_HOME=/scratch/xz2/$USER/xdg_cache
+
 python - <<'PY'
 import esm
 import torch
@@ -75,8 +124,7 @@ print("ok")
 PY
 ```
 
-The first run downloads model weights. Keep the cache on project storage if
-`$HOME` quota or inode pressure is a concern:
+Keep caches on project storage if `$HOME` quota or inode pressure is a concern:
 
 ```bash
 mkdir -p /scratch/xz2/$USER/torch_cache /scratch/xz2/$USER/xdg_cache
@@ -84,7 +132,7 @@ export TORCH_HOME=/scratch/xz2/$USER/torch_cache
 export XDG_CACHE_HOME=/scratch/xz2/$USER/xdg_cache
 ```
 
-## Step 2: Update Settings
+## Step 3: Update Settings
 
 Use the `esmfold` block in the run settings:
 
@@ -109,7 +157,7 @@ Notes:
 - ESMFold pLDDT is stored in the PDB B-factor column and is summarized into
   `esmfold_plddt`, `esmfold_binder_plddt`, and `esmfold_target_plddt`.
 
-## Step 3: Clean The Environment
+## Step 4: Clean The Environment
 
 ```bash
 cd /path/to/install/location
@@ -133,7 +181,7 @@ find ./esmfold -type d -name ".pytest_cache" -exec rm -rf {} +
 find ./esmfold -xdev -printf '.' | wc -c
 ```
 
-## Step 4: Load For A Run
+## Step 5: Load For A Run
 
 ```bash
 module purge

@@ -22,3 +22,11 @@ qsub -v SETTINGS=/scratch/xz2/$USER/runs/my_run.json,OUTPUT_DIR=/scratch/xz2/$US
 ```
 
 The ESMFold job runs in the active `VENV`, which should provide PyTorch and `fair-esm[esmfold]`. Tune `esmfold.gpu_device`, `esmfold.chunk_size`, and `esmfold.num_recycles` in the settings JSON for the available GPU memory.
+
+Use `copyq` for the first ESMFold weight download because it has external network access:
+
+```bash
+qsub -v TORCH_HOME=/scratch/xz2/$USER/torch_cache environments/00_download_esmfold_weights_copyq.pbs
+```
+
+Set the same `TORCH_HOME` for `03_run_esmfold.pbs` so `torch.hub` finds the downloaded `esmfold_3B_v1.pt` checkpoint.
