@@ -2,7 +2,7 @@ absl-py==2.4.0
 attrs==25.4.0
 biopython==1.86
 chex==0.1.90
-colabdesign @ git+ssh://git@github.com/ABarancewicz/colabdesign_modified.git
+colabdesign-modified @ git+ssh://git@github.com/ABarancewicz/colabdesign_modified.git
 contourpy==1.3.2
 cycler==0.12.1
 dm-haiku==0.0.16
