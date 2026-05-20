@@ -18,14 +18,14 @@ Run this on a Gadi node with internet access:
 ```bash
 module load python3/3.10.4 cuda/12.9.0
 
-cd /scratch/xz2/$USER
+cd /path/to/install/location
 git clone git@github.com:RSCJacksonLab/chai-1-offline.git
 
-python3 -m venv /scratch/xz2/$USER/chai1_offline
+python3 -m venv /path/to/install/location/chai1_offline
 source /scratch/xz2/$USER/chai1_offline/bin/activate
 
 python -m pip install --upgrade pip
-python -m pip install -e /scratch/xz2/$USER/chai-1-offline
+python -m pip install -e /path/to/install/location/chai-1-offline
 python -m pip install biopython
 ```
 
@@ -69,7 +69,7 @@ importing Chai.
 ## Run
 
 ```bash
-source /scratch/xz2/$USER/chai1_offline/bin/activate
+source /path/to/install/location/chai1_offline/bin/activate
 export CHAI_MODEL_DIR=/scratch/xz2/chai-1_weights/
 
 python3 scripts/run_chai1_offline.py --settings settings/my_run.json --limit 100
