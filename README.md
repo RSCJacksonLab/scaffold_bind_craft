@@ -4,8 +4,8 @@ Modular scaffold binder design pipeline with restartable HPC stages:
 
 1. `scripts/run_colabdesign_rso.py` performs relaxed sequence optimisation with `colabdesign_modified`, fixed residue support, pLDDT early stopping, and RSO save filters for iPTM, pLDDT, PAE, and interface PAE.
 2. `scripts/run_proteinmpnn.py` runs ProteinMPNN on accepted RSO structures and designs only the relaxed positions.
-3. `scripts/run_esmfold.py` predicts pending ProteinMPNN binder-target sequences with ESMFold.
-4. `scripts/run_openmm_screen.py` relaxes ESMFold PDBs with the local OpenMM path, scores interfaces with PyRosetta-free utilities, and writes accepted relaxed structures.
+3. `scripts/run_chai1_offline.py` predicts pending ProteinMPNN binder-target sequences with Chai-1 offline in single-sequence mode using ESM embeddings, without MSA or template servers.
+4. `scripts/run_openmm_screen.py` relaxes Chai-1 PDBs with the local OpenMM path, scores interfaces with PyRosetta-free utilities, and writes accepted relaxed structures.
 
 Each script takes the same settings file and creates one subdirectory under `output_dir`. Existing outputs are counted before work starts, so a time-limited HPC job can be resubmitted without restarting completed work.
 
@@ -13,9 +13,47 @@ Each script takes the same settings file and creates one subdirectory under `out
 You need 4 environments:
 1. Colabdesign_modified
 2. ProteinMPNN
-3. ESMFold
+3. Chai-1 offline
 4. OpenMM
 
+### Chai-1 Offline Install
+
+Chai-1 requires Linux, Python 3.10 or later, and a CUDA GPU with bfloat16 support. Install it in the prediction environment:
+
+```bash
+python3.10 -m venv chai1_offline
+source chai1_offline/bin/activate
+python -m pip install --upgrade pip
+python -m pip install chai_lab==0.6.1 biopython
+```
+
+For an offline HPC run, download/cache the model weights in a network-enabled job first:
+
+```bash
+export CHAI_DOWNLOADS_DIR=/scratch/xz2/$USER/chai_downloads
+python - <<'PY'
+from pathlib import Path
+from chai_lab.chai1 import run_inference
+
+fasta = Path("/tmp/chai_cache_test.fasta")
+fasta.write_text(">protein|name=A\nGAGAGAGAGAGAGAGA\n")
+out = Path("/tmp/chai_cache_test")
+out.mkdir(exist_ok=True)
+run_inference(
+    fasta_file=fasta,
+    output_dir=out,
+    use_esm_embeddings=True,
+    use_msa_server=False,
+    use_templates_server=False,
+    num_diffn_samples=1,
+    num_diffn_timesteps=10,
+    device="cuda:0",
+    fasta_names_as_cif_chains=True,
+)
+PY
+```
+
+Set the same `CHAI_DOWNLOADS_DIR` for prediction jobs. See `environments/gadi_chai1_offline.md` for Gadi-specific setup.
 
 ## Usage
 
@@ -24,7 +62,7 @@ Edit `settings/example.json`, then run each stage independently:
 ```bash
 python3 scripts/run_colabdesign_rso.py --settings settings/my_run.json --limit 50
 python3 scripts/run_proteinmpnn.py --settings settings/my_run.json --limit 50
-python3 scripts/run_esmfold.py --settings settings/my_run.json --limit 100
+python3 scripts/run_chai1_offline.py --settings settings/my_run.json --limit 100
 python3 scripts/run_openmm_screen.py --settings settings/my_run.json --limit 100
 ```
 
@@ -46,11 +84,13 @@ output_dir/
     scores/
     probs/
     proteinmpnn_metrics.csv
-  03_esmfold/
+  03_chai1/
     inputs/
+    raw_outputs/
+    cifs/
     predictions/
     metrics/
-    esmfold_metrics.csv
+    chai1_metrics.csv
   04_openmm_screen/
     pdbs/
     relaxed_pdbs/
@@ -61,7 +101,7 @@ output_dir/
 ## Notes
 
 - RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
-- ESMFold target sequences can be set explicitly with `esmfold.target_sequences`. If omitted, they are extracted from `input_pdb` for `esmfold.target_chains`.
-- ESMFold runs in the active Python environment and expects `fair-esm[esmfold]` plus PyTorch. Set `esmfold.gpu_device`, `esmfold.device`, `esmfold.chunk_size`, and `esmfold.num_recycles` as needed for the hardware.
-- Screening records ESMFold confidence fields as `esmfold_plddt`, `esmfold_binder_plddt`, `esmfold_target_plddt`, and `esmfold_chain_count`. ESMFold filter rules use `threshold`.
+- Chai-1 target sequences can be set explicitly with `chai1.target_sequences`. If omitted, they are extracted from `input_pdb` for `chai1.target_chains`.
+- Chai-1 runs in single-sequence mode by default: `use_esm_embeddings=true`, `use_msa_server=false`, and `use_templates_server=false`. Set `chai1.gpu_device`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` as needed for the hardware.
+- Screening records Chai-1 confidence fields as `chai1_plddt`, `chai1_binder_plddt`, `chai1_target_plddt`, `chai1_chain_count`, and `chai1_aggregate_score`. Chai-1 filter rules use `threshold`.
 - OpenMM screening is self-contained in `scaffold_bind_craft.openmm_screen_utils` and `scaffold_bind_craft.hbond_utils`. It records structure-specific binder-target H-bonds and approximate buried unsatisfied polar atoms from the relaxed PDB.

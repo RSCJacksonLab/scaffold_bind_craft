@@ -2,8 +2,8 @@
 #PBS -P xz2
 #PBS -q gpuvolta
 #PBS -l walltime=48:00:00
-#PBS -l mem=60GB
-#PBS -l jobfs=20GB
+#PBS -l mem=80GB
+#PBS -l jobfs=40GB
 #PBS -l ncpus=12
 #PBS -l ngpus=1
 #PBS -l wd
@@ -13,18 +13,18 @@
 
 set -euo pipefail
 
-module load python3/3.9.2 cuda/12.9.0
+module load python3/3.10.4 cuda/12.9.0
 
 REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
 LIMIT="${LIMIT:-100}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
-VENV="${VENV:-/scratch/xz2/$USER/esmfold}"
+VENV="${VENV:-/scratch/xz2/$USER/chai1_offline}"
 
 export TMPDIR="${PBS_JOBFS:-/tmp}"
-export TORCH_HOME="${TORCH_HOME:-/scratch/xz2/$USER/torch_cache}"
+export CHAI_DOWNLOADS_DIR="${CHAI_DOWNLOADS_DIR:-/scratch/xz2/$USER/chai_downloads}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/scratch/xz2/$USER/xdg_cache}"
-mkdir -p "$TORCH_HOME" "$XDG_CACHE_HOME"
+mkdir -p "$CHAI_DOWNLOADS_DIR" "$XDG_CACHE_HOME"
 
 source "$VENV/bin/activate"
 cd "$REPO_DIR"
@@ -34,4 +34,4 @@ if [[ -n "$OUTPUT_DIR" ]]; then
   args+=(--output-dir "$OUTPUT_DIR")
 fi
 
-python3 scripts/run_esmfold.py "${args[@]}"
+python3 scripts/run_chai1_offline.py "${args[@]}"

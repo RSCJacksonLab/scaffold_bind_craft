@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
-from scaffold_bind_craft.esmfold_utils import find_esmfold_prediction, find_esmfold_predictions
+from scaffold_bind_craft.chai1_utils import find_chai1_prediction, find_chai1_predictions
 from scaffold_bind_craft.io_utils import append_csv, flatten_json, read_csv_rows
 from scaffold_bind_craft.openmm_screen_utils import (
     calculate_clash_score,
@@ -38,10 +38,11 @@ BASE_FIELDS = [
 ]
 
 PREDICTION_FIELDS = [
-    "esmfold_plddt",
-    "esmfold_binder_plddt",
-    "esmfold_target_plddt",
-    "esmfold_chain_count",
+    "chai1_plddt",
+    "chai1_binder_plddt",
+    "chai1_target_plddt",
+    "chai1_chain_count",
+    "chai1_aggregate_score",
 ]
 
 INTERFACE_FIELDS = [
@@ -121,17 +122,17 @@ def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics:
     return (not failed, "; ".join(failed))
 
 
-def esmfold_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    return {key: rule for key, rule in filters.items() if key.startswith("esmfold_")}
+def chai1_filters(filters: dict[str, Any]) -> dict[str, Any]:
+    return {key: rule for key, rule in filters.items() if key.startswith("chai1_")}
 
 
 def post_prediction_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    prediction_prefixes = ("esmfold_", "protenix_", "boltz_")
+    prediction_prefixes = ("chai1_", "protenix_", "boltz_")
     return {key: rule for key, rule in filters.items() if not key.startswith(prediction_prefixes)}
 
 
 def find_prediction_names(predictions_out: Path) -> list[str]:
-    return [design_name for design_name, _, _ in find_esmfold_predictions(predictions_out)]
+    return [design_name for design_name, _, _ in find_chai1_predictions(predictions_out)]
 
 
 def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
@@ -144,12 +145,13 @@ def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
     return done
 
 
-def add_esmfold_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -> None:
+def add_chai1_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -> None:
     mapping = {
-        "plddt": "esmfold_plddt",
-        "binder_plddt": "esmfold_binder_plddt",
-        "target_plddt": "esmfold_target_plddt",
-        "chain_count": "esmfold_chain_count",
+        "plddt": "chai1_plddt",
+        "binder_plddt": "chai1_binder_plddt",
+        "target_plddt": "chai1_target_plddt",
+        "chain_count": "chai1_chain_count",
+        "aggregate_score": "chai1_aggregate_score",
     }
     for source, dest in mapping.items():
         if source in confidence:
@@ -157,7 +159,7 @@ def add_esmfold_summary_metrics(row: dict[str, Any], confidence: dict[str, Any])
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Relax ESMFold predictions with OpenMM and screen interfaces.")
+    parser = argparse.ArgumentParser(description="Relax Chai-1 predictions with OpenMM and screen interfaces.")
     parser.add_argument("--settings", required=True)
     parser.add_argument("--output-dir")
     parser.add_argument("--limit", type=int, default=None, help="Maximum pending predictions to screen in this run.")
@@ -172,8 +174,8 @@ def main() -> int:
     for path in (pdb_dir, relaxed_dir, accepted_dir):
         path.mkdir(parents=True, exist_ok=True)
 
-    esmfold_out = stage_dir(settings, "esmfold")
-    names = find_prediction_names(esmfold_out)
+    chai1_out = stage_dir(settings, "chai1")
+    names = find_prediction_names(chai1_out)
     metrics_csv = out / "screening_metrics.csv"
     done = processed_names(metrics_csv, bool(screen.get("rerun_failed", False)))
     pending = [name for name in names if name not in done]
@@ -195,18 +197,18 @@ def main() -> int:
         row: dict[str, Any] = {"design_name": design_name}
         try:
             sample_metrics: dict[str, list[float]] = {}
-            prediction_path, metrics_path = find_esmfold_prediction(esmfold_out, design_name)
+            prediction_path, metrics_path = find_chai1_prediction(chai1_out, design_name)
             if not prediction_path or not metrics_path:
-                raise FileNotFoundError("ESMFold PDB/metrics JSON not found")
+                raise FileNotFoundError("Chai-1 PDB/metrics JSON not found")
             with metrics_path.open() as handle:
                 confidence = json.load(handle)
 
             flat_conf: dict[str, Any] = {}
-            flatten_json("esmfold", confidence, flat_conf)
+            flatten_json("chai1", confidence, flat_conf)
             row.update({key: value for key, value in flat_conf.items() if key in PREDICTION_FIELDS})
-            add_esmfold_summary_metrics(row, confidence)
+            add_chai1_summary_metrics(row, confidence)
 
-            passed, reason = passes_filters(row, esmfold_filters(filters), sample_metrics)
+            passed, reason = passes_filters(row, chai1_filters(filters), sample_metrics)
             if not passed:
                 row.update(
                     {
@@ -226,10 +228,10 @@ def main() -> int:
                 continue
 
             sequence = extract_chain_sequences(prediction_path, [str(binder_chain)]).get(str(binder_chain), "")
-            unrelaxed_pdb = pdb_dir / f"{design_name}_esmfold.pdb"
+            unrelaxed_pdb = pdb_dir / f"{design_name}_chai1.pdb"
             if not unrelaxed_pdb.exists() or unrelaxed_pdb.stat().st_size == 0:
                 shutil.copy2(prediction_path, unrelaxed_pdb)
-            relaxed_pdb = relaxed_dir / f"{design_name}_esmfold_openmm_relaxed.pdb"
+            relaxed_pdb = relaxed_dir / f"{design_name}_chai1_openmm_relaxed.pdb"
             if not relaxed_pdb.exists() or relaxed_pdb.stat().st_size == 0:
                 openmm_relax_subprocess(
                     str(unrelaxed_pdb),

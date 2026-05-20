@@ -18,8 +18,8 @@
     "proteinmpnn": {
       "dir": "02_proteinmpnn"
     },
-    "esmfold": {
-      "dir": "03_esmfold"
+    "chai1": {
+      "dir": "03_chai1"
     },
     "openmm": {
       "dir": "04_openmm_screen"
@@ -96,13 +96,19 @@
     "save_probs": true,
     "omit_AAs": "X"
   },
-  "esmfold": {
+  "chai1": {
     "gpu_device": 0,
+    "device": "cuda:0",
     "target_chains": "A",
     "target_sequences": null,
     "binder_chain": "B",
-    "chunk_size": 128,
-    "num_recycles": null,
+    "use_esm_embeddings": true,
+    "num_trunk_recycles": 3,
+    "num_diffn_timesteps": 200,
+    "num_diffn_samples": 5,
+    "num_trunk_samples": 1,
+    "low_memory": true,
+    "seed": 42,
     "max_sequences_per_backbone": null
   },
   "screening": {
@@ -116,11 +122,11 @@
     "sasa_engine": "auto",
     "rerun_failed": false,
     "filters": {
-      "esmfold_plddt": {
+      "chai1_plddt": {
         "threshold": 80.0,
         "higher": true
       },
-      "esmfold_binder_plddt": {
+      "chai1_binder_plddt": {
         "threshold": 80.0,
         "higher": true
       },
