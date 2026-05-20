@@ -21,13 +21,12 @@ Use `OUTPUT_DIR` to override the settings file output directory for a job:
 qsub -v SETTINGS=/scratch/xz2/$USER/runs/my_run.json,OUTPUT_DIR=/scratch/xz2/$USER/runs/run_001,LIMIT=100 scripts/gadi/03_run_chai1_offline.pbs
 ```
 
-The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `git@github.com:RSCJacksonLab/chai-1-offline.git`, PyTorch, CUDA, and Biopython. Tune `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
+The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `git@github.com:RSCJacksonLab/chai-1-offline.git`, PyTorch, CUDA, and Biopython. Tune `chai1.model_dir`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
 
-Prime Chai model weights in `CHAI_DOWNLOADS_DIR` from a network-enabled job before offline prediction jobs:
+Download Chai-1 assets and ESM-2 embedding weights on `copyq` before offline prediction jobs:
 
 ```bash
-export CHAI_DOWNLOADS_DIR=/scratch/xz2/$USER/chai_downloads
-python -c 'from pathlib import Path; from chai_lab.chai1 import run_inference; f=Path("/tmp/chai_cache.fasta"); f.write_text(">protein|name=A\nGAGAGAGAGAGAGAGA\n"); o=Path("/tmp/chai_cache"); o.mkdir(exist_ok=True); run_inference(fasta_file=f, output_dir=o, use_esm_embeddings=True, use_msa_server=False, use_templates_server=False, num_diffn_samples=1, num_diffn_timesteps=10, device="cuda:0", fasta_names_as_cif_chains=True)'
+qsub -v REPO_DIR=/scratch/xz2/$USER/scaffold_bind_craft,VENV=/scratch/xz2/$USER/chai1_offline,WEIGHTS_DIR=/scratch/xz2/chai-1_weights/ environments/00_download_chai1_weights_copyq.pbs
 ```
 
-Set the same `CHAI_DOWNLOADS_DIR` for `03_run_chai1_offline.pbs`.
+Set the same location as `CHAI_MODEL_DIR` or `chai1.model_dir` for `03_run_chai1_offline.pbs`.

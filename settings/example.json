@@ -102,6 +102,8 @@
     "target_chains": "A",
     "target_sequences": null,
     "binder_chain": "B",
+    "model_dir": "/scratch/xz2/chai-1_weights/",
+    "offline": true,
     "use_esm_embeddings": true,
     "num_trunk_recycles": 3,
     "num_diffn_timesteps": 200,

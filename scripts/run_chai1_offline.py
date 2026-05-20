@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 import time
@@ -58,6 +59,19 @@ def chai1_device(chai1: dict[str, Any]) -> str:
     return f"cuda:{int(chai1.get('gpu_device', 0))}"
 
 
+def configure_model_paths(chai1: dict[str, Any]) -> Path:
+    model_dir = Path(os.environ.get("CHAI_MODEL_DIR", chai1.get("model_dir", "/scratch/xz2/chai-1_weights/"))).expanduser().resolve()
+    model_dir.mkdir(parents=True, exist_ok=True)
+    hf_home = model_dir / "huggingface"
+    os.environ["CHAI_DOWNLOADS_DIR"] = str(model_dir)
+    os.environ["HF_HOME"] = str(hf_home)
+    os.environ["HF_HUB_CACHE"] = str(hf_home / "hub")
+    if bool(chai1.get("offline", True)):
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+    return model_dir
+
+
 def run_inference(input_path: Path, raw_output_dir: Path, chai1: dict[str, Any]):
     try:
         from chai_lab.chai1 import run_inference as chai_run_inference
@@ -99,6 +113,7 @@ def main() -> int:
 
     settings = load_settings(args.settings, args.output_dir)
     chai1 = require(settings, "chai1")
+    model_dir = configure_model_paths(chai1)
     out = stage_dir(settings, "chai1")
     input_dir = out / "inputs"
     raw_dir = out / "raw_outputs"
@@ -138,7 +153,7 @@ def main() -> int:
 
     if args.limit is not None:
         designs = designs[: max(0, int(args.limit))]
-    print(f"Chai-1 fasta_files={len(fasta_files)}, pending_predictions={len(designs)}")
+    print(f"Chai-1 fasta_files={len(fasta_files)}, pending_predictions={len(designs)}, model_dir={model_dir}")
     if not designs:
         return 0
 

@@ -1,0 +1,43 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q copyq
+#PBS -l walltime=06:00:00
+#PBS -l mem=16GB
+#PBS -l jobfs=20GB
+#PBS -l ncpus=4
+#PBS -l wd
+#PBS -r y
+#PBS -l storage=scratch/xz2+gdata/xz2
+#PBS -M <YOUR_EMAIL_HERE>
+
+set -euo pipefail
+
+# copyq has external network access. This job downloads Chai-1 inference assets
+# and the ESM-2 embedding model without running Chai inference.
+
+module load python3/3.10.4
+
+REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
+VENV="${VENV:-/scratch/xz2/$USER/chai1_offline}"
+WEIGHTS_DIR="${WEIGHTS_DIR:-/scratch/xz2/chai-1_weights/}"
+FORCE="${FORCE:-0}"
+
+source "$VENV/bin/activate"
+cd "$REPO_DIR"
+
+args=(--weights-dir "$WEIGHTS_DIR")
+if [[ "$FORCE" == "1" ]]; then
+  args+=(--force)
+fi
+
+python3 environments/download_chai1_weights.py "${args[@]}"
+
+cat <<EOF
+
+Chai-1 weights are ready at:
+  $WEIGHTS_DIR
+
+Use this location for prediction jobs:
+  qsub -v CHAI_MODEL_DIR=$WEIGHTS_DIR,SETTINGS=/path/to/settings.json scripts/gadi/03_run_chai1_offline.pbs
+
+EOF

@@ -30,33 +30,13 @@ python -m pip install -e ./chai-1-offline
 python -m pip install biopython
 ```
 
-For an offline HPC run, download/cache the model weights in a network-enabled job first:
+For an offline HPC run, download the Chai-1 assets and ESM-2 embedding weights on the `copyq` queue before prediction:
 
 ```bash
-export CHAI_DOWNLOADS_DIR=/scratch/xz2/$USER/chai_downloads
-python - <<'PY'
-from pathlib import Path
-from chai_lab.chai1 import run_inference
-
-fasta = Path("/tmp/chai_cache_test.fasta")
-fasta.write_text(">protein|name=A\nGAGAGAGAGAGAGAGA\n")
-out = Path("/tmp/chai_cache_test")
-out.mkdir(exist_ok=True)
-run_inference(
-    fasta_file=fasta,
-    output_dir=out,
-    use_esm_embeddings=True,
-    use_msa_server=False,
-    use_templates_server=False,
-    num_diffn_samples=1,
-    num_diffn_timesteps=10,
-    device="cuda:0",
-    fasta_names_as_cif_chains=True,
-)
-PY
+qsub -v VENV=/scratch/xz2/$USER/chai1_offline,WEIGHTS_DIR=/scratch/xz2/chai-1_weights/ environments/00_download_chai1_weights_copyq.pbs
 ```
 
-Set the same `CHAI_DOWNLOADS_DIR` for prediction jobs. See `environments/gadi_chai1_offline.md` for Gadi-specific setup.
+Set `chai1.model_dir` or `CHAI_MODEL_DIR` to the same `/scratch/xz2/chai-1_weights/` location for prediction jobs. See `environments/gadi_chai1_offline.md` for Gadi-specific setup.
 
 ## Usage
 
@@ -105,6 +85,6 @@ output_dir/
 
 - RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
 - Chai-1 target sequences can be set explicitly with `chai1.target_sequences`. If omitted, they are extracted from `input_pdb` for `chai1.target_chains`.
-- Chai-1 runs in single-sequence mode by default: `use_esm_embeddings=true`, `use_msa_server=false`, and `use_templates_server=false`. Set `chai1.gpu_device`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` as needed for the hardware.
+- Chai-1 runs in single-sequence mode by default: `use_esm_embeddings=true`, `use_msa_server=false`, and `use_templates_server=false`. Set `chai1.model_dir` to the predownloaded Chai/ESM weight directory, and tune `chai1.gpu_device`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` as needed for the hardware.
 - Screening records Chai-1 confidence fields as `chai1_plddt`, `chai1_binder_plddt`, `chai1_target_plddt`, `chai1_chain_count`, and `chai1_aggregate_score`. Chai-1 filter rules use `threshold`.
 - OpenMM screening is self-contained in `scaffold_bind_craft.openmm_screen_utils` and `scaffold_bind_craft.hbond_utils`. It records structure-specific binder-target H-bonds and approximate buried unsatisfied polar atoms from the relaxed PDB.

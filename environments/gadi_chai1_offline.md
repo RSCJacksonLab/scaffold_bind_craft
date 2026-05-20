@@ -9,7 +9,7 @@ embeddings and does not call MSA or template servers during prediction.
 - Linux
 - Python 3.10 or later
 - CUDA GPU with bfloat16 support
-- `CHAI_DOWNLOADS_DIR` on shared storage for cached Chai model weights
+- `/scratch/xz2/chai-1_weights/` on shared storage for Chai assets and ESM-2 embedding weights
 
 ## Install
 
@@ -29,36 +29,11 @@ python -m pip install -e /scratch/xz2/$USER/chai-1-offline
 python -m pip install biopython
 ```
 
-Chai downloads weights on first use. Prime the cache from a network-enabled GPU
-job and keep the same cache path for later offline jobs:
+Download the Chai-1 assets and ESM-2 embedding weights from `copyq`, which has
+external network access. This does not run Chai inference:
 
 ```bash
-export CHAI_DOWNLOADS_DIR=/scratch/xz2/$USER/chai_downloads
-mkdir -p "$CHAI_DOWNLOADS_DIR"
-
-python - <<'PY'
-from pathlib import Path
-from chai_lab.chai1 import run_inference
-
-fasta = Path("/tmp/chai_cache_test.fasta")
-fasta.write_text(">protein|name=A\nGAGAGAGAGAGAGAGA\n")
-out = Path("/tmp/chai_cache_test")
-out.mkdir(exist_ok=True)
-
-run_inference(
-    fasta_file=fasta,
-    output_dir=out,
-    use_esm_embeddings=True,
-    use_msa_server=False,
-    use_templates_server=False,
-    num_trunk_recycles=1,
-    num_diffn_timesteps=10,
-    num_diffn_samples=1,
-    seed=42,
-    device="cuda:0",
-    fasta_names_as_cif_chains=True,
-)
-PY
+qsub -v REPO_DIR=/scratch/xz2/$USER/scaffold_bind_craft,VENV=/scratch/xz2/$USER/chai1_offline,WEIGHTS_DIR=/scratch/xz2/chai-1_weights/ environments/00_download_chai1_weights_copyq.pbs
 ```
 
 ## Settings
@@ -72,6 +47,8 @@ Use the `chai1` block in the run settings:
   "target_chains": "A",
   "target_sequences": null,
   "binder_chain": "B",
+  "model_dir": "/scratch/xz2/chai-1_weights/",
+  "offline": true,
   "use_esm_embeddings": true,
   "num_trunk_recycles": 3,
   "num_diffn_timesteps": 200,
@@ -85,13 +62,15 @@ Use the `chai1` block in the run settings:
 
 The script forces `use_msa_server=false`, `use_templates_server=false`, and
 `fasta_names_as_cif_chains=true` so predictions remain offline and output chains
-match the configured target and binder chain IDs.
+match the configured target and binder chain IDs. It also points
+`CHAI_DOWNLOADS_DIR`, `HF_HOME`, and `HF_HUB_CACHE` at `chai1.model_dir` before
+importing Chai.
 
 ## Run
 
 ```bash
 source /scratch/xz2/$USER/chai1_offline/bin/activate
-export CHAI_DOWNLOADS_DIR=/scratch/xz2/$USER/chai_downloads
+export CHAI_MODEL_DIR=/scratch/xz2/chai-1_weights/
 
 python3 scripts/run_chai1_offline.py --settings settings/my_run.json --limit 100
 ```
@@ -99,5 +78,5 @@ python3 scripts/run_chai1_offline.py --settings settings/my_run.json --limit 100
 For PBS submission:
 
 ```bash
-qsub -v VENV=/scratch/xz2/$USER/chai1_offline,CHAI_DOWNLOADS_DIR=/scratch/xz2/$USER/chai_downloads,SETTINGS=/path/to/settings.json,LIMIT=100 scripts/gadi/03_run_chai1_offline.pbs
+qsub -v VENV=/scratch/xz2/$USER/chai1_offline,CHAI_MODEL_DIR=/scratch/xz2/chai-1_weights/,SETTINGS=/path/to/settings.json,LIMIT=100 scripts/gadi/03_run_chai1_offline.pbs
 ```
