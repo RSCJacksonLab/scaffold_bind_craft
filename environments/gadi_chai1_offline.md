@@ -1,8 +1,8 @@
 # Gadi Chai-1 Offline Environment
 
-This setup installs Chai-1 for `scripts/run_chai1_offline.py`. The stage runs in
-single-sequence mode with ESM embeddings and does not call MSA or template
-servers during prediction.
+This setup installs `git@github.com:RSCJacksonLab/chai-1-offline.git` for
+`scripts/run_chai1_offline.py`. The stage runs in single-sequence mode with ESM
+embeddings and does not call MSA or template servers during prediction.
 
 ## Requirements
 
@@ -18,11 +18,15 @@ Run this on a Gadi node with internet access:
 ```bash
 module load python3/3.10.4 cuda/12.9.0
 
+cd /scratch/xz2/$USER
+git clone git@github.com:RSCJacksonLab/chai-1-offline.git
+
 python3 -m venv /scratch/xz2/$USER/chai1_offline
 source /scratch/xz2/$USER/chai1_offline/bin/activate
 
 python -m pip install --upgrade pip
-python -m pip install chai_lab==0.6.1 biopython
+python -m pip install -e /scratch/xz2/$USER/chai-1-offline
+python -m pip install biopython
 ```
 
 Chai downloads weights on first use. Prime the cache from a network-enabled GPU

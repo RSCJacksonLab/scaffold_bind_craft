@@ -21,7 +21,7 @@ Use `OUTPUT_DIR` to override the settings file output directory for a job:
 qsub -v SETTINGS=/scratch/xz2/$USER/runs/my_run.json,OUTPUT_DIR=/scratch/xz2/$USER/runs/run_001,LIMIT=100 scripts/gadi/03_run_chai1_offline.pbs
 ```
 
-The Chai-1 job runs in the active `VENV`, which should provide `chai_lab`, PyTorch, CUDA, and Biopython. Tune `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
+The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `git@github.com:RSCJacksonLab/chai-1-offline.git`, PyTorch, CUDA, and Biopython. Tune `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
 
 Prime Chai model weights in `CHAI_DOWNLOADS_DIR` from a network-enabled job before offline prediction jobs:
 

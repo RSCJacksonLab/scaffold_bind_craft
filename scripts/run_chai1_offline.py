@@ -62,7 +62,10 @@ def run_inference(input_path: Path, raw_output_dir: Path, chai1: dict[str, Any])
     try:
         from chai_lab.chai1 import run_inference as chai_run_inference
     except Exception as exc:
-        raise RuntimeError("Chai-1 offline requires chai_lab and its PyTorch/CUDA dependencies") from exc
+        raise RuntimeError(
+            "Chai-1 offline requires chai_lab from git@github.com:RSCJacksonLab/chai-1-offline.git "
+            "and its PyTorch/CUDA dependencies"
+        ) from exc
 
     if raw_output_dir.exists():
         shutil.rmtree(raw_output_dir)

@@ -21,10 +21,13 @@ You need 4 environments:
 Chai-1 requires Linux, Python 3.10 or later, and a CUDA GPU with bfloat16 support. Install it in the prediction environment:
 
 ```bash
+git clone git@github.com:RSCJacksonLab/chai-1-offline.git
+
 python3.10 -m venv chai1_offline
 source chai1_offline/bin/activate
 python -m pip install --upgrade pip
-python -m pip install chai_lab==0.6.1 biopython
+python -m pip install -e ./chai-1-offline
+python -m pip install biopython
 ```
 
 For an offline HPC run, download/cache the model weights in a network-enabled job first:
