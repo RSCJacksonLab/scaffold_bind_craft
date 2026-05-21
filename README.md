@@ -27,7 +27,7 @@ python3.10 -m venv chai1_offline
 source chai1_offline/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ./chai-1-offline
-python -m pip install biopython
+python -m pip install biopython huggingface_hub
 ```
 
 For an offline HPC run, download the Chai-1 assets and ESM-2 embedding weights on the `copyq` queue before prediction:

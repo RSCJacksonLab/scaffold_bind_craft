@@ -53,7 +53,10 @@ def download_esm_assets(weights_dir: Path, force: bool = False) -> None:
     try:
         from huggingface_hub import snapshot_download
     except Exception as exc:
-        raise RuntimeError("ESM weight download requires huggingface_hub in the active environment") from exc
+        raise RuntimeError(
+            "ESM weight download requires huggingface_hub in the active environment. "
+            "Install it with: python -m pip install huggingface_hub"
+        ) from exc
 
     hf_home = weights_dir / "huggingface"
     os.environ["HF_HOME"] = str(hf_home)
