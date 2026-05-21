@@ -17,8 +17,8 @@ set -euo pipefail
 
 module load python3/3.10.4
 
-REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bindcraft/scaffold_bind_craft}"
-VENV="${VENV:-/scratch/xz2/$USER/scaffold_bindcraft/envs/chai1_offline}"
+REPO_DIR="${REPO_DIR:-/scratch/xz2/ab8507/scaffold_bindcraft/scaffold_bind_craft}"
+VENV="${VENV:-/scratch/xz2/ab8507/scaffold_bindcraft/envs/chai1_offline}"
 WEIGHTS_DIR="${WEIGHTS_DIR:-/scratch/xz2/chai-1_weights/}"
 FORCE="${FORCE:-0}"
 
