@@ -33,7 +33,7 @@ python -m pip install biopython
 For an offline HPC run, download the Chai-1 assets and ESM-2 embedding weights on the `copyq` queue before prediction:
 
 ```bash
-qsub -v VENV=/scratch/xz2/$USER/chai1_offline,WEIGHTS_DIR=/scratch/xz2/chai-1_weights/ environments/00_download_chai1_weights_copyq.pbs
+qsub environments/00_download_chai1_weights_copyq.pbs
 ```
 
 Set `chai1.model_dir` or `CHAI_MODEL_DIR` to the same `/scratch/xz2/chai-1_weights/` location for prediction jobs. See `environments/gadi_chai1_offline.md` for Gadi-specific setup.

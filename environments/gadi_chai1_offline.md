@@ -22,7 +22,7 @@ cd /path/to/install/location
 git clone git@github.com:RSCJacksonLab/chai-1-offline.git
 
 python3 -m venv /path/to/install/location/chai1_offline
-source /scratch/xz2/$USER/chai1_offline/bin/activate
+source /path/to/install/location/chai1_offline/bin/activate
 
 python -m pip install --upgrade pip
 python -m pip install -e /path/to/install/location/chai-1-offline
@@ -33,7 +33,7 @@ Download the Chai-1 assets and ESM-2 embedding weights from `copyq`, which has
 external network access. This does not run Chai inference:
 
 ```bash
-qsub -v REPO_DIR=/path/to/scaffold_bind_craft,VENV=/path/to/env/chai1_offline,WEIGHTS_DIR=/scratch/xz2/chai-1_weights/ environments/00_download_chai1_weights_copyq.pbs
+qsub environments/00_download_chai1_weights_copyq.pbs
 ```
 
 ## Settings

@@ -26,7 +26,7 @@ The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `
 Download Chai-1 assets and ESM-2 embedding weights on `copyq` before offline prediction jobs:
 
 ```bash
-qsub -v REPO_DIR=/scratch/xz2/$USER/scaffold_bind_craft,VENV=/scratch/xz2/$USER/chai1_offline,WEIGHTS_DIR=/scratch/xz2/chai-1_weights/ environments/00_download_chai1_weights_copyq.pbs
+qsub environments/00_download_chai1_weights_copyq.pbs
 ```
 
 Set the same location as `CHAI_MODEL_DIR` or `chai1.model_dir` for `03_run_chai1_offline.pbs`.
