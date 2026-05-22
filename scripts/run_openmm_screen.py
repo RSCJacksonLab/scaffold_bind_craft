@@ -131,6 +131,16 @@ def post_prediction_filters(filters: dict[str, Any]) -> dict[str, Any]:
     return {key: rule for key, rule in filters.items() if not key.startswith(prediction_prefixes)}
 
 
+def first_chain_id(value: Any, default: str = "A") -> str:
+    if value is None:
+        return default
+    if isinstance(value, str):
+        chains = [part.strip() for part in value.replace(",", " ").split() if part.strip()]
+    else:
+        chains = [str(part).strip() for part in value if str(part).strip()]
+    return chains[0] if chains else default
+
+
 def find_prediction_names(predictions_out: Path) -> list[str]:
     return [design_name for design_name, _, _ in find_chai1_predictions(predictions_out)]
 
@@ -187,7 +197,7 @@ def main() -> int:
 
     fields = BASE_FIELDS + PREDICTION_FIELDS + INTERFACE_FIELDS
     binder_chain = screen.get("binder_chain", settings.get("binder_chain", "B"))
-    target_chain = screen.get("target_chain", "A")
+    target_chain = screen.get("target_chain", first_chain_id(settings.get("target_chains", "A")))
     filters = screen.get("filters", {})
 
     for design_name in pending:

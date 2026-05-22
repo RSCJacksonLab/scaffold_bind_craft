@@ -83,8 +83,8 @@ output_dir/
 
 ## Notes
 
-- RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
-- Chai-1 target sequences can be set explicitly with `chai1.target_sequences`. If omitted, they are extracted from `input_pdb` for `chai1.target_chains`.
+- RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions` or top-level `design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
+- Chai-1 target sequences can be set explicitly with `chai1.target_sequences`. If omitted, they are extracted from `input_pdb` for `chai1.target_chains` or top-level `target_chains`.
 - Chai-1 runs in single-sequence mode by default: `use_esm_embeddings=true`, `use_msa_server=false`, and `use_templates_server=false`. Set `chai1.model_dir` to the predownloaded Chai/ESM weight directory, and tune `chai1.gpu_device`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` as needed for the hardware.
 - Screening records Chai-1 confidence fields as `chai1_plddt`, `chai1_binder_plddt`, `chai1_target_plddt`, `chai1_chain_count`, and `chai1_aggregate_score`. Chai-1 filter rules use `threshold`.
 - OpenMM screening is self-contained in `scaffold_bind_craft.openmm_screen_utils` and `scaffold_bind_craft.hbond_utils`. It records structure-specific binder-target H-bonds and approximate buried unsatisfied polar atoms from the relaxed PDB.

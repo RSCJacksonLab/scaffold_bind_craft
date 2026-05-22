@@ -44,9 +44,7 @@ Use the `chai1` block in the run settings:
 "chai1": {
   "gpu_device": 0,
   "device": "cuda:0",
-  "target_chains": "A",
   "target_sequences": null,
-  "binder_chain": "B",
   "model_dir": "/scratch/xz2/chai-1_weights/",
   "offline": true,
   "use_esm_embeddings": true,

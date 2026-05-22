@@ -28,9 +28,6 @@
   "rso": {
     "num_structures": 50,
     "seed": 0,
-    "target_chains": "A",
-    "binder_chain": "B",
-    "fixed_positions": null,
     "binder_length": 62,
     "model": {
       "protocol": "binder",
@@ -84,8 +81,6 @@
     "max_attempts": 1000
   },
   "proteinmpnn": {
-    "chains_to_design": "B",
-    "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
     "num_seq_per_target": 10,
     "sampling_temp": "0.1",
     "seed": 37,
@@ -99,9 +94,7 @@
   "chai1": {
     "gpu_device": 0,
     "device": "cuda:0",
-    "target_chains": "A",
     "target_sequences": null,
-    "binder_chain": "B",
     "model_dir": "/scratch/xz2/chai-1_weights/",
     "offline": true,
     "use_esm_embeddings": true,
@@ -114,8 +107,6 @@
     "max_sequences_per_backbone": null
   },
   "screening": {
-    "binder_chain": "B",
-    "target_chain": "A",
     "use_gpu_relax": true,
     "use_faspr_repack": true,
     "openmm_timeout_seconds": 1800,
