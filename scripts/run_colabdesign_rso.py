@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -97,6 +98,8 @@ def below_threshold(value: float | None, threshold: float | None) -> bool:
 
 def fixed_positions_from_design_positions(settings: dict[str, Any], rso: dict[str, Any]) -> str | None:
     fixed_positions = rso.get("fixed_positions", settings.get("fixed_positions", None))
+    if isinstance(fixed_positions, str) and not fixed_positions.strip():
+        return None
     if fixed_positions is not None:
         return fixed_positions
 
@@ -125,6 +128,12 @@ def fixed_positions_from_design_positions(settings: dict[str, Any], rso: dict[st
         if ordinal not in design_set
     ]
     return compact_chain_positions(fixed_residues)
+
+
+def optional_position_string(value: Any) -> Any:
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
 
 
 def binder_residue_ids(pdb_path: str | Path, chain_ids: list[str]) -> list[tuple[str, int]]:
@@ -186,6 +195,8 @@ def initialise_model(settings: dict[str, Any]) -> Any:
     rso = require(settings, "rso")
     model_settings = rso.get("model", {})
     clear_mem()
+    hotspot = optional_position_string(rso.get("hotspot_residues", settings.get("hotspot_residues", None)))
+    fix_pos = optional_position_string(fixed_positions_from_design_positions(settings, rso))
     af_model = mk_afdesign_model(
         protocol=model_settings.get("protocol", "binder"),
         use_multimer=model_settings.get("use_multimer", True),
@@ -195,9 +206,9 @@ def initialise_model(settings: dict[str, Any]) -> Any:
     af_model.prep_inputs(
         pdb_filename=require(settings, "input_pdb"),
         chain=rso.get("target_chains", settings.get("target_chains", "A")),
-        hotspot=rso.get("hotspot_residues", settings.get("hotspot_residues", "")),
+        hotspot=hotspot,
         binder_chain=rso.get("binder_chain", settings.get("binder_chain", "B")),
-        fix_pos=fixed_positions_from_design_positions(settings, rso),
+        fix_pos=fix_pos,
     )
 
     if "contacts" in rso:
@@ -403,6 +414,7 @@ def main() -> int:
         try:
             row = run_one(settings, seed, accepted_dir, rejected_dir, traj_dir)
         except Exception as exc:
+            traceback.print_exc()
             row = {
                 "design_name": f"rso_{seed}",
                 "seed": seed,
