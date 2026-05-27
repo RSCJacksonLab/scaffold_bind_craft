@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import os
-import sys
 import urllib.request
 from pathlib import Path
 
@@ -16,8 +14,9 @@ CHAI_ASSETS = [
     "models_v2/feature_embedding.pt",
     "models_v2/diffusion_module.pt",
     "models_v2/confidence_head.pt",
+    "esm2/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt",
 ]
-ESM_REPO_ID = "facebook/esm2_t36_3B_UR50D"
+ESM_DESTINATION = "esm/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt"
 
 
 def download_url(url: str, destination: Path, force: bool = False) -> None:
@@ -46,28 +45,10 @@ def download_url(url: str, destination: Path, force: bool = False) -> None:
 
 def download_chai_assets(weights_dir: Path, force: bool = False) -> None:
     for asset in CHAI_ASSETS:
-        download_url(CHAI_BASE_URL + asset, weights_dir / asset, force=force)
-
-
-def download_esm_assets(weights_dir: Path, force: bool = False) -> None:
-    try:
-        from huggingface_hub import snapshot_download
-    except Exception as exc:
-        raise RuntimeError(
-            "ESM weight download requires huggingface_hub in the active environment. "
-            "Install it with: python -m pip install huggingface_hub"
-        ) from exc
-
-    hf_home = weights_dir / "huggingface"
-    os.environ["HF_HOME"] = str(hf_home)
-    os.environ["HF_HUB_CACHE"] = str(hf_home / "hub")
-    print(f"download {ESM_REPO_ID} -> {os.environ['HF_HUB_CACHE']}")
-    snapshot_download(
-        repo_id=ESM_REPO_ID,
-        cache_dir=os.environ["HF_HUB_CACHE"],
-        local_files_only=False,
-        force_download=force,
-    )
+        destination = weights_dir / asset
+        if asset.startswith("esm2/"):
+            destination = weights_dir / ESM_DESTINATION
+        download_url(CHAI_BASE_URL + asset, destination, force=force)
 
 
 def main() -> int:
@@ -79,7 +60,6 @@ def main() -> int:
     weights_dir = Path(args.weights_dir).expanduser().resolve()
     weights_dir.mkdir(parents=True, exist_ok=True)
     download_chai_assets(weights_dir, force=args.force)
-    download_esm_assets(weights_dir, force=args.force)
     print(f"ready {weights_dir}")
     return 0
 

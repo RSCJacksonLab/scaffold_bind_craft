@@ -26,11 +26,11 @@ source /path/to/install/location/chai1_offline/bin/activate
 
 python -m pip install --upgrade pip
 python -m pip install -e /path/to/install/location/chai-1-offline
-python -m pip install biopython huggingface_hub
+python -m pip install biopython
 ```
 
-Download the Chai-1 assets and ESM-2 embedding weights from `copyq`, which has
-external network access. This does not run Chai inference:
+Download the Chai-1 assets and traced ESM-2 embedding model from `copyq`, which
+has external network access. This does not run Chai inference:
 
 ```bash
 qsub environments/00_download_chai1_weights_copyq.pbs
@@ -60,9 +60,9 @@ Use the `chai1` block in the run settings:
 
 The script forces `use_msa_server=false`, `use_templates_server=false`, and
 `fasta_names_as_cif_chains=true` so predictions remain offline and output chains
-match the configured target and binder chain IDs. It also points
-`CHAI_DOWNLOADS_DIR`, `HF_HOME`, and `HF_HUB_CACHE` at `chai1.model_dir` before
-importing Chai.
+match the configured target and binder chain IDs. It points `CHAI_DOWNLOADS_DIR`
+at `chai1.model_dir` before importing Chai, so the ESM model is loaded from
+`$CHAI_DOWNLOADS_DIR/esm/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt`.
 
 ## Run
 

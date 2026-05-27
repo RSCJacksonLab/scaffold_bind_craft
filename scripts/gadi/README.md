@@ -23,7 +23,7 @@ qsub -v SETTINGS=/scratch/xz2/$USER/runs/my_run.json,OUTPUT_DIR=/scratch/xz2/$US
 
 The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `git@github.com:RSCJacksonLab/chai-1-offline.git`, PyTorch, CUDA, and Biopython. Tune `chai1.model_dir`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
 
-Download Chai-1 assets and ESM-2 embedding weights on `copyq` before offline prediction jobs:
+Download Chai-1 assets and the traced ESM-2 embedding model on `copyq` before offline prediction jobs:
 
 ```bash
 qsub environments/00_download_chai1_weights_copyq.pbs
