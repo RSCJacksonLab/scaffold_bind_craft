@@ -29,4 +29,4 @@ Download Chai-1 assets and the traced ESM-2 embedding model on `copyq` before of
 qsub environments/00_download_chai1_weights_copyq.pbs
 ```
 
-Set the same location as `CHAI_MODEL_DIR` or `chai1.model_dir` for `03_run_chai1_offline.pbs`.
+The downloader uses `GROUP=xz2` by default and makes staged files/directories group writable. Set the same location as `CHAI_MODEL_DIR` or `chai1.model_dir` for `03_run_chai1_offline.pbs`.

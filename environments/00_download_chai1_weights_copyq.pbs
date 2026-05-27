@@ -11,6 +11,7 @@
 #PBS -M <YOUR_EMAIL_HERE>
 
 set -euo pipefail
+umask 0007
 
 # copyq has external network access. This job downloads Chai-1 inference assets
 # and the ESM-2 embedding model without running Chai inference.
@@ -20,12 +21,13 @@ module load python3/3.10.4
 REPO_DIR="${REPO_DIR:-/scratch/xz2/ab8507/scaffold_bindcraft/scaffold_bind_craft}"
 VENV="${VENV:-/scratch/xz2/ab8507/scaffold_bindcraft/envs/chai1_offline}"
 WEIGHTS_DIR="${WEIGHTS_DIR:-/scratch/xz2/chai-1_weights/}"
+GROUP="${GROUP:-xz2}"
 FORCE="${FORCE:-0}"
 
 source "$VENV/bin/activate"
 cd "$REPO_DIR"
 
-args=(--weights-dir "$WEIGHTS_DIR")
+args=(--weights-dir "$WEIGHTS_DIR" --group "$GROUP")
 if [[ "$FORCE" == "1" ]]; then
   args+=(--force)
 fi

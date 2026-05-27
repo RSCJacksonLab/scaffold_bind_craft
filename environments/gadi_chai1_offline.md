@@ -36,6 +36,13 @@ has external network access. This does not run Chai inference:
 qsub environments/00_download_chai1_weights_copyq.pbs
 ```
 
+The downloader stages files with group `xz2` and group `rwx` permissions by
+default. Override with `GROUP=...` if needed:
+
+```bash
+qsub -v WEIGHTS_DIR=/scratch/xz2/chai-1_weights/,GROUP=xz2 environments/00_download_chai1_weights_copyq.pbs
+```
+
 ## Settings
 
 Use the `chai1` block in the run settings:
