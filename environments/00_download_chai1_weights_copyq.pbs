@@ -34,6 +34,58 @@ fi
 
 python3 environments/download_chai1_weights.py "${args[@]}"
 
+mkdir -p "$WEIGHTS_DIR/models_v2" "$WEIGHTS_DIR/esm"
+
+download_if_missing() {
+  local dst="$1"
+  local url="$2"
+
+  if [[ -f "$dst" ]]; then
+    echo "OK   $dst"
+    return 0
+  fi
+
+  echo "MISS $dst"
+  echo "DOWNLOADING $url"
+  mkdir -p "$(dirname "$dst")"
+  curl -L --fail -o "$dst" "$url"
+  echo "DONE $dst"
+}
+
+download_if_missing \
+  "$WEIGHTS_DIR/models_v2/bond_loss_input_proj.pt" \
+  "https://chaiassets.com/chai1-inference-depencencies/models_v2/bond_loss_input_proj.pt"
+
+download_if_missing \
+  "$WEIGHTS_DIR/esm/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt" \
+  "https://chaiassets.com/chai1-inference-depencencies/esm2/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt"
+
+echo
+echo "Preflight check:"
+missing=0
+for f in \
+  "$WEIGHTS_DIR/models_v2/trunk.pt" \
+  "$WEIGHTS_DIR/models_v2/token_embedder.pt" \
+  "$WEIGHTS_DIR/models_v2/feature_embedding.pt" \
+  "$WEIGHTS_DIR/models_v2/diffusion_module.pt" \
+  "$WEIGHTS_DIR/models_v2/confidence_head.pt" \
+  "$WEIGHTS_DIR/models_v2/bond_loss_input_proj.pt" \
+  "$WEIGHTS_DIR/esm/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt"
+do
+  if [[ -f "$f" ]]; then
+    echo "OK   $f"
+  else
+    echo "MISS $f"
+    missing=1
+  fi
+done
+
+if [[ "$missing" -ne 0 ]]; then
+  echo
+  echo "One or more required Chai-1 artifacts are still missing."
+  exit 1
+fi
+
 cat <<EOF
 
 Chai-1 weights are ready at:
