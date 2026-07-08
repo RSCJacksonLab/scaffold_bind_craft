@@ -1,15 +1,15 @@
 {
-  "output_dir": "/scratch/xz2/ab8507/igg3_designs",
-  "input_pdb": "/home/272/ab8507/5W38_all5.pdb",
+  "output_dir": "/cluster/home/anthony/igg3_designs",
+  "input_pdb": "/cluster/home/anthony/igg3_design/5W38_all5.pdb",
   "target_chains": "A",
   "binder_chain": "C",
   "hotspot_residues": "A247-252,A309-A315,A378-A383,A413-A441",
   "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
   "fixed_positions": null,
   "tools": {
-    "colabdesign_path": "/scratch/xz2/ab8507/scaffold_bindcraft/colabdesign_modified",
-    "alphafold_params_dir": "/scratch/xz2/colabfold_params/",
-    "proteinmpnn_path": "/scratch/xz2/ab8507/scaffold_bindcraft/ProteinMPNN"
+    "colabdesign_path": "/env/shared/colabdesign_modified",
+    "alphafold_params_dir": "/models/alphafold2/2022-12-06/",
+    "proteinmpnn_path": "/env/shared/ProteinMPNN"
   },
   "stages": {
     "rso": {
@@ -95,7 +95,7 @@
     "gpu_device": 0,
     "device": "cuda:0",
     "target_sequences": null,
-    "model_dir": "/scratch/xz2/chai-1_weights/",
+    "model_dir": "/models/chai-1",
     "offline": true,
     "use_esm_embeddings": true,
     "num_trunk_recycles": 3,
