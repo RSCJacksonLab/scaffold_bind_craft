@@ -1,15 +1,23 @@
 {
   "output_dir": "/cluster/home/anthony/igg3_designs",
-  "input_pdb": "/cluster/home/anthony/igg3_design/5W38_all5.pdb",
+  "input_pdb": "/cluster/home/anthony/igg3_designs/00_input/5W38_all5.pdb",
   "target_chains": "A",
   "binder_chain": "C",
   "hotspot_residues": "A247-252,A309-A315,A378-A383,A413-A441",
   "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
   "fixed_positions": null,
   "tools": {
-    "colabdesign_path": "/env/shared/colabdesign_modified",
+    "colabdesign_path": "/envs/shared/colabdesign_modified",
     "alphafold_params_dir": "/models/alphafold2/2022-12-06/",
-    "proteinmpnn_path": "/env/shared/ProteinMPNN"
+    "proteinmpnn_path": "/envs/shared/ProteinMPNN"
+  },
+  "hpc": {
+    "venvs": {
+      "proteinmpnn": "/envs/shared/ProteinMPNN/env",
+      "chai1": "/envs/shared/chai1_offline",
+      "fast_protenix": "/envs/$USER/fast_protenix_alphafast",
+      "openmm": "/envs/shared/openmm"
+    }
   },
   "stages": {
     "rso": {
@@ -26,7 +34,7 @@
     }
   },
   "rso": {
-    "num_structures": 50,
+    "num_structures": 100,
     "seed": 0,
     "binder_length": 62,
     "model": {
