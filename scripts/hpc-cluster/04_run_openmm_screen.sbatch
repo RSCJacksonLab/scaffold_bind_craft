@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=sbc-openmm
 #SBATCH --partition=long
-#SBATCH --time=48:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=30G
 #SBATCH --tmp=20G
 #SBATCH --cpus-per-task=12
@@ -17,13 +17,20 @@ source /etc/profile
 module purge
 module load python/3.11.15
 
-REPO_DIR="${REPO_DIR:-/scratch/$USER/scaffold_bind_craft}"
-SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
+REPO_DIR="${REPO_DIR:-$HOME/scaffold_bind_craft}"
+SETTINGS="${SETTINGS:-$REPO_DIR/settings/igg3.json}"
 LIMIT="${LIMIT:-100}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
-VENV="${VENV:-/env/shared/openmm}"
+VENV="${VENV:-$(python3 - "$SETTINGS" <<'PYJSON'
+import json
+import os
+import sys
+with open(sys.argv[1]) as handle:
+    print(os.path.expandvars(json.load(handle)["hpc"]["venvs"]["openmm"]))
+PYJSON
+)}"
 
-export TMPDIR="${TMPDIR:-${jobfs:-/jobfs/$SLURM_JOB_ID}}"
+export TMPDIR="${TMPDIR:-${jobfs:-/jobfs/${SLURM_JOB_ID:-manual}}}"
 export TMP="${TMP:-$TMPDIR}"
 export TEMP="${TEMP:-$TMPDIR}"
 mkdir -p "/scratch/$USER/logs" "$TMPDIR"
