@@ -188,6 +188,21 @@ def rso_filters_pass(metrics: dict[str, float | None], filters: dict[str, Any]) 
     return (not failed, "; ".join(failed))
 
 
+def apply_rso_model_options(af_model: Any, rso: dict[str, Any]) -> None:
+    if "contacts" in rso:
+        contacts = rso["contacts"]
+        if "intra" in contacts:
+            af_model.set_opt({"con": contacts["intra"]}, set_defaults=True)
+        if "inter" in contacts:
+            af_model.set_opt({"i_con": contacts["inter"]}, set_defaults=True)
+
+    weights = dict(rso.get("weights", {}))
+    if rso.get("disable_dgram_cce", True):
+        weights["dgram_cce"] = 0
+    if weights:
+        af_model.set_weights(weights, set_defaults=True)
+
+
 def initialise_model(settings: dict[str, Any]) -> Any:
     add_colabdesign_to_path(settings)
     from colabdesign import clear_mem, mk_afdesign_model
@@ -211,16 +226,7 @@ def initialise_model(settings: dict[str, Any]) -> Any:
         fix_pos=fix_pos,
     )
 
-    if "contacts" in rso:
-        contacts = rso["contacts"]
-        if "intra" in contacts:
-            af_model.opt["con"].update(contacts["intra"])
-        if "inter" in contacts:
-            af_model.opt["i_con"].update(contacts["inter"])
-
-    af_model.opt["weights"].update(rso.get("weights", {}))
-    if rso.get("disable_dgram_cce", True):
-        af_model.opt["weights"]["dgram_cce"] = 0
+    apply_rso_model_options(af_model, rso)
     return af_model
 
 
@@ -235,17 +241,21 @@ def collect_metrics(af_model: Any, binder_length: int | None) -> dict[str, float
     }
 
 
-def run_one(settings: dict[str, Any], seed: int, accepted_dir: Path, rejected_dir: Path, traj_dir: Path) -> dict[str, Any]:
+def run_one(
+    settings: dict[str, Any],
+    af_model: Any,
+    seed: int,
+    accepted_dir: Path,
+    rejected_dir: Path,
+    traj_dir: Path,
+) -> dict[str, Any]:
     start = time.time()
     rso = settings["rso"]
     binder_length = rso.get("binder_length")
     early = rso.get("early_stop", {})
     filters = rso.get("save_filters", {})
-    af_model = initialise_model(settings)
 
-    np.random.seed(seed)
-    if hasattr(af_model, "set_seed"):
-        af_model.set_seed(seed)
+    af_model.restart(seed=seed)
     name_prefix = f"rso_{seed}"
 
     initial_iters = int(early.get("initial_logits_iters", 75))
@@ -405,6 +415,7 @@ def main() -> int:
     attempts = 0
     accepted_this_run = 0
     max_attempts = int(rso.get("max_attempts", max(100, to_add * 20)))
+    af_model = initialise_model(settings)
     while accepted_this_run < to_add and attempts < max_attempts:
         seed = int(rng.integers(1, 2_147_483_647))
         if seed in seen:
@@ -412,7 +423,7 @@ def main() -> int:
         seen.add(seed)
         attempts += 1
         try:
-            row = run_one(settings, seed, accepted_dir, rejected_dir, traj_dir)
+            row = run_one(settings, af_model, seed, accepted_dir, rejected_dir, traj_dir)
         except Exception as exc:
             traceback.print_exc()
             row = {
