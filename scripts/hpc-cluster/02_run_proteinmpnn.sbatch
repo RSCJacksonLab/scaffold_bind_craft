@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=sbc-proteinmpnn
-#SBATCH --partition=debug
+#SBATCH --partition=gpu96
 #SBATCH --time=24:00:00
 #SBATCH --mem=30G
 #SBATCH --tmp=10G
@@ -19,7 +19,7 @@ module load python/3.11.15
 
 REPO_DIR="${REPO_DIR:-$HOME/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/igg3.json}"
-LIMIT="${LIMIT:-50}"
+LIMIT="${LIMIT:-1000}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
 VENV="${VENV:-$(python3 - "$SETTINGS" <<'PYJSON'
 import json
