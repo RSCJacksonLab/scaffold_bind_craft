@@ -136,7 +136,7 @@
         "higher": true
       },
       "chai1_pae": {
-        "threshold": null,
+        "threshold": 0.2,
         "higher": false
       },
       "relaxed_clashes": {
