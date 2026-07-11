@@ -17,6 +17,7 @@ CHAI_ASSETS = [
     "models_v2/feature_embedding.pt",
     "models_v2/diffusion_module.pt",
     "models_v2/confidence_head.pt",
+    "models_v2/bond_loss_input_proj.pt",
     "esm2/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt",
 ]
 ESM_DESTINATION = "esm/traced_sdpa_esm2_t36_3B_UR50D_fp16.pt"
