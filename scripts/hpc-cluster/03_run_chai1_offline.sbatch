@@ -11,9 +11,9 @@
 #SBATCH --mail-user=<YOUR_EMAIL_HERE>
 #SBATCH --mail-type=FAIL,END
 
+source /etc/profile
 set -euo pipefail
 
-source /etc/profile
 module purge
 module load python/3.10.20
 
