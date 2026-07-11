@@ -132,11 +132,11 @@
         "higher": true
       },
       "chai1_iptm": {
-        "threshold": 0.75,
+        "threshold": 0.80,
         "higher": true
       },
       "chai1_pae": {
-        "threshold": 0.2,
+        "threshold": 5,
         "higher": false
       },
       "relaxed_clashes": {
