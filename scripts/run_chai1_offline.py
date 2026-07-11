@@ -14,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.chai1_utils import (
+    add_chai1_error_metrics,
     add_chai1_scores,
     chain_id_list,
     cif_to_pdb,
@@ -40,6 +41,8 @@ FIELDS = [
     "chai1_binder_plddt",
     "chai1_target_plddt",
     "chai1_aggregate_score",
+    "chai1_iptm",
+    "chai1_pae",
     "reason",
 ]
 
@@ -188,6 +191,7 @@ def main() -> int:
                     "use_templates_server": False,
                 }
             )
+            add_chai1_error_metrics(metrics, candidates, best_index)
             add_chai1_scores(metrics, raw_output_dir, best_index)
             write_metrics_json(metrics_path, metrics)
             found_pdb, found_metrics = find_chai1_prediction(out, design_name)
@@ -206,6 +210,8 @@ def main() -> int:
                     "chai1_binder_plddt": metrics.get("binder_plddt"),
                     "chai1_target_plddt": metrics.get("target_plddt"),
                     "chai1_aggregate_score": metrics.get("aggregate_score"),
+                    "chai1_iptm": metrics.get("iptm"),
+                    "chai1_pae": metrics.get("pae"),
                     "reason": reason,
                 },
                 FIELDS,

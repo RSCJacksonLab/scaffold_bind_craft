@@ -43,6 +43,8 @@ PREDICTION_FIELDS = [
     "chai1_target_plddt",
     "chai1_chain_count",
     "chai1_aggregate_score",
+    "chai1_iptm",
+    "chai1_pae",
 ]
 
 INTERFACE_FIELDS = [
@@ -162,6 +164,8 @@ def add_chai1_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -
         "target_plddt": "chai1_target_plddt",
         "chain_count": "chai1_chain_count",
         "aggregate_score": "chai1_aggregate_score",
+        "iptm": "chai1_iptm",
+        "pae": "chai1_pae",
     }
     for source, dest in mapping.items():
         if source in confidence:

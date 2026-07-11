@@ -117,17 +117,46 @@ def plddt_metrics_from_pdb(
     return metrics
 
 
+def score_value(value: Any) -> Any:
+    array = np.asarray(value)
+    if array.size == 1:
+        return array.reshape(-1)[0].item()
+    return array.tolist()
+
+
 def add_chai1_scores(metrics: dict[str, Any], output_dir: Path, model_index: int) -> None:
     scores_path = output_dir / f"scores.model_idx_{model_index}.npz"
     if not scores_path.exists():
         return
     scores = np.load(scores_path)
-    for key in ("aggregate_score", "ptm", "iptm", "chain_ptm", "chain_pair_iptm", "pae", "pde"):
+    for key in (
+        "aggregate_score",
+        "ptm",
+        "iptm",
+        "per_chain_ptm",
+        "per_chain_pair_iptm",
+        "chain_ptm",
+        "chain_pair_iptm",
+        "pae",
+        "pde",
+        "has_inter_chain_clashes",
+        "chain_chain_clashes",
+    ):
         if key not in scores:
             continue
-        value = scores[key]
-        if np.isscalar(value) or value.shape == ():
-            metrics[key] = float(value)
+        metrics[key] = score_value(scores[key])
+
+
+def add_chai1_error_metrics(metrics: dict[str, Any], candidates: Any, model_index: int) -> None:
+    for key in ("pae", "pde"):
+        value = getattr(candidates, key, None)
+        if value is None:
+            continue
+        array = np.asarray(value)
+        if model_index >= array.shape[0]:
+            continue
+        selected = array[model_index]
+        metrics[key] = round(float(np.mean(selected)), 4)
 
 
 def write_metrics_json(path: Path, metrics: Mapping[str, Any]) -> None:

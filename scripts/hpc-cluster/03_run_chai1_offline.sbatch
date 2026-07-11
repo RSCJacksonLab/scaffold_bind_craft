@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=sbc-chai1
-#SBATCH --partition=long
-#SBATCH --time=48:00:00
+#SBATCH --partition=gpu96
+#SBATCH --time=24:00:00
 #SBATCH --mem=80G
 #SBATCH --tmp=40G
 #SBATCH --cpus-per-task=12
