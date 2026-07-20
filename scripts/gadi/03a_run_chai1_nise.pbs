@@ -1,0 +1,43 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q gpuvolta
+#PBS -l walltime=48:00:00
+#PBS -l mem=80GB
+#PBS -l jobfs=40GB
+#PBS -l ncpus=12
+#PBS -l ngpus=1
+#PBS -l wd
+#PBS -r y
+#PBS -l storage=scratch/xz2+gdata/xz2
+#PBS -M <YOUR_EMAIL_HERE>
+
+set -euo pipefail
+
+module load python3/3.10.4 cuda/12.9.0
+
+REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
+SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
+LIMIT="${LIMIT:-100}"
+OUTPUT_DIR="${OUTPUT_DIR:-}"
+VENV="${VENV:-/scratch/xz2/$USER/chai1_offline}"
+CHAI_MODEL_DIR="${CHAI_MODEL_DIR:-/scratch/xz2/chai-1_weights/}"
+
+export TMPDIR="${PBS_JOBFS:-/tmp}"
+export CHAI_MODEL_DIR
+export CHAI_DOWNLOADS_DIR="$CHAI_MODEL_DIR"
+export HF_HOME="$CHAI_MODEL_DIR/huggingface"
+export HF_HUB_CACHE="$HF_HOME/hub"
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/scratch/xz2/$USER/xdg_cache}"
+mkdir -p "$CHAI_MODEL_DIR" "$HF_HUB_CACHE" "$XDG_CACHE_HOME"
+
+source "$VENV/bin/activate"
+cd "$REPO_DIR"
+
+args=(--settings "$SETTINGS" --limit "$LIMIT")
+if [[ -n "$OUTPUT_DIR" ]]; then
+  args+=(--output-dir "$OUTPUT_DIR")
+fi
+
+python3 scripts/run_chai1_nise.py "${args[@]}"

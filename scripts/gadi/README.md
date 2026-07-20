@@ -5,7 +5,8 @@ PBS templates for running the four `scaffold_bind_craft` stages on Gadi:
 1. `01_run_colabdesign_rso.pbs`
 2. `02_run_proteinmpnn.pbs`
 3. `03_run_chai1_offline.pbs`
-4. `04_run_openmm_screen.pbs`
+4. `03a_run_chai1_nise.pbs` (optional)
+5. `04_run_openmm_screen.pbs`
 
 Edit the `#PBS -P`, `#PBS -M`, storage flags, and default paths before submitting, or override runtime values with `qsub -v`.
 

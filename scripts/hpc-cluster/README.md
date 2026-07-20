@@ -5,8 +5,9 @@ Slurm templates for running the `scaffold_bind_craft` stages on `hpc-cluster-3`:
 1. `01_run_colabdesign_rso.sbatch`
 2. `02_run_proteinmpnn.sbatch`
 3. `03_run_chai1_offline.sbatch`
-4. `03_run_fast_protenix.sbatch`
-5. `04_run_openmm_screen.sbatch`
+4. `03a_run_chai1_nise.sbatch` (optional)
+5. `03_run_fast_protenix.sbatch`
+6. `04_run_openmm_screen.sbatch`
 
 Edit the `#SBATCH --mail-user` and scheduler resources before submitting. Pipeline paths come from the settings JSON, with `REPO_DIR`, `SETTINGS`, `OUTPUT_DIR`, `LIMIT`, and `VENV` still available as `sbatch --export` overrides.
 
@@ -26,4 +27,4 @@ The templates default `REPO_DIR` to `$HOME/scaffold_bind_craft` and `SETTINGS` t
 
 The default partition is `long` because these templates mirror the longer Gadi jobs. For short tests, submit with `--partition=debug --time=04:00:00`. Use `--partition=gpu96` only when the workload needs the 96 GB GPU; for Fast Protenix on `gpu96`, also override the MMseqs module in the script to `mmseqs/18-8cc5c/blackwell`.
 
-Chai-1 runs offline by default and uses `chai1.model_dir` from the settings JSON unless `CHAI_MODEL_DIR` is explicitly exported. Tune `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` there for the available GPU memory.
+Chai-1 and optional NISE runs use Chai-1 offline by default and use `chai1.model_dir` from the settings JSON unless `CHAI_MODEL_DIR` is explicitly exported. Tune `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` there for the available GPU memory.

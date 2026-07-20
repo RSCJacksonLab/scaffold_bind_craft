@@ -19,7 +19,7 @@ module load python/3.10.20
 
 REPO_DIR="${REPO_DIR:-$HOME/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/igg3.json}"
-LIMIT="${LIMIT:-100}"
+LIMIT="${LIMIT:-10000}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
 VENV="${VENV:-$(python3 - "$SETTINGS" <<'PYJSON'
 import json

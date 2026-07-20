@@ -13,7 +13,7 @@
   },
   "hpc": {
     "venvs": {
-      "proteinmpnn": "/envs/shared/ProteinMPNN/env",
+      "proteinmpnn": "/cluster/home/anthony/pmpnn",
       "chai1": "/envs/shared/chai1_offline",
       "fast_protenix": "/envs/$USER/fast_protenix_alphafast",
       "openmm": "/envs/shared/openmm"
@@ -28,6 +28,9 @@
     },
     "chai1": {
       "dir": "03_chai1"
+    },
+    "nise": {
+      "dir": "03a_NISE"
     },
     "openmm": {
       "dir": "04_openmm_screen"
@@ -84,15 +87,15 @@
       "min_plddt": 0.75,
       "min_iptm": 0.75,
       "max_pae": null,
-      "max_i_pae": 0.20
+      "max_i_pae": 0.2
     },
     "max_attempts": 1000
   },
   "proteinmpnn": {
-    "num_seq_per_target": 10,
-    "sampling_temp": "0.1",
+    "num_seq_per_target": 50,
+    "sampling_temp": "0.2",
     "seed": 37,
-    "batch_size": 10,
+    "batch_size": 5,
     "model_name": "v_48_020",
     "use_soluble_model": false,
     "save_score": true,
@@ -107,12 +110,29 @@
     "offline": true,
     "use_esm_embeddings": true,
     "num_trunk_recycles": 3,
-    "num_diffn_timesteps": 150,
+    "num_diffn_timesteps": 200,
     "num_diffn_samples": 2,
     "num_trunk_samples": 1,
     "low_memory": false,
     "seed": 42,
     "max_sequences_per_backbone": null
+  },
+  "nise": {
+    "enabled": true,
+    "threshold": 0.7,
+    "score_field": "chai1_iptm",
+    "num_iterations": 25,
+    "num_top_backbones_per_round": 10,
+    "sequences_sampled_per_backbone": 10,
+    "max_sequences_per_backbone": 5,
+    "proteinmpnn": {
+      "python": "/cluster/home/anthony/pmpnn/bin/python"
+    },
+    "chai1": {},
+    "num_random_design_positions": 3,
+    "random_seed": 37,
+    "design_positions": "interface",
+    "interface_sasa_threshold": 1.0
   },
   "screening": {
     "use_gpu_relax": true,
@@ -132,11 +152,11 @@
         "higher": true
       },
       "chai1_iptm": {
-        "threshold": 0.80,
+        "threshold": 0.75,
         "higher": true
       },
       "chai1_pae": {
-        "threshold": 5,
+        "threshold": 6,
         "higher": false
       },
       "relaxed_clashes": {
@@ -144,7 +164,7 @@
         "higher": false
       },
       "interface_interface_sc": {
-        "threshold": 0.60,
+        "threshold": 0.6,
         "higher": true
       },
       "interface_interface_dSASA": {

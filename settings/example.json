@@ -21,6 +21,9 @@
     "chai1": {
       "dir": "03_chai1"
     },
+    "nise": {
+      "dir": "03a_NISE"
+    },
     "openmm": {
       "dir": "04_openmm_screen"
     }
@@ -76,7 +79,7 @@
       "min_plddt": 0.8,
       "min_iptm": 0.8,
       "max_pae": null,
-      "max_i_pae": 0.20
+      "max_i_pae": 0.2
     },
     "max_attempts": 1000
   },
@@ -106,6 +109,21 @@
     "seed": 42,
     "max_sequences_per_backbone": null
   },
+  "nise": {
+    "enabled": false,
+    "threshold": 0.7,
+    "score_field": "chai1_aggregate_score",
+    "num_iterations": 1,
+    "num_top_backbones_per_round": null,
+    "sequences_sampled_per_backbone": 16,
+    "max_sequences_per_backbone": null,
+    "proteinmpnn": {},
+    "chai1": {},
+    "num_random_design_positions": null,
+    "random_seed": 37,
+    "design_positions": null,
+    "interface_sasa_threshold": 1.0
+  },
   "screening": {
     "use_gpu_relax": true,
     "use_faspr_repack": true,
@@ -128,7 +146,7 @@
         "higher": false
       },
       "interface_interface_sc": {
-        "threshold": 0.60,
+        "threshold": 0.6,
         "higher": true
       },
       "interface_interface_dSASA": {
