@@ -14,8 +14,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
-from scaffold_bind_craft.chai1_utils import find_chai1_prediction, find_chai1_predictions
-from scaffold_bind_craft.io_utils import append_csv, flatten_json, read_csv_rows
+from scaffold_bind_craft.chai1_utils import find_chai1_predictions
+from scaffold_bind_craft.io_utils import append_csv, ensure_csv_fields, flatten_json, read_csv_rows
 from scaffold_bind_craft.openmm_screen_utils import (
     calculate_clash_score,
     openmm_relax_subprocess,
@@ -34,6 +34,8 @@ BASE_FIELDS = [
     "unrelaxed_clashes",
     "relaxed_clashes",
     "reason",
+    "failed_metric",
+    "failed_value",
     "elapsed_seconds",
 ]
 
@@ -48,27 +50,52 @@ PREDICTION_FIELDS = [
 ]
 
 INTERFACE_FIELDS = [
-    "interface_binder_score",
     "interface_surface_hydrophobicity",
-    "interface_interface_sc",
-    "interface_interface_packstat",
-    "interface_interface_dG",
     "interface_interface_dSASA",
-    "interface_interface_dG_SASA_ratio",
     "interface_interface_fraction",
     "interface_interface_hydrophobicity",
     "interface_interface_nres",
     "interface_interface_interface_hbonds",
     "interface_interface_hbond_percentage",
+    "interface_hbonds_per_1000_dSASA",
+    "interface_buried_polar_atoms_total",
+    "interface_buried_satisfied_polar_atoms",
+    "interface_buried_unsatisfied_polar_atoms",
+    "interface_buried_polar_satisfaction_percentage",
+    "interface_binder_buried_unsatisfied_polar_atoms",
+    "interface_target_buried_unsatisfied_polar_atoms",
+    "interface_buried_unsatisfied_donor_atoms",
+    "interface_buried_unsatisfied_acceptor_atoms",
+    "interface_delta_buried_unsatisfied_polar_atoms",
+    "interface_salt_bridges",
     "interface_interface_delta_unsat_hbonds",
     "interface_interface_delta_unsat_hbonds_percentage",
     "interface_residues",
     "interface_amino_acids",
 ]
 
+LEGACY_INTERFACE_FIELDS = {
+    "interface_binder_score",
+    "interface_interface_sc",
+    "interface_interface_packstat",
+    "interface_interface_dG",
+    "interface_interface_dG_SASA_ratio",
+}
 
-def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics: dict[str, list[float]] | None = None) -> tuple[bool, str]:
+
+def passes_filters(
+    row: dict[str, Any],
+    filters: dict[str, Any],
+    sample_metrics: dict[str, list[float]] | None = None,
+    failed_metrics: list[str] | None = None,
+) -> tuple[bool, str]:
     failed: list[str] = []
+
+    def record_failure(metric: str, value: str) -> None:
+        failed.append(value)
+        if failed_metrics is not None:
+            failed_metrics.append(metric)
+
     for key, rule in filters.items():
         if not isinstance(rule, dict):
             continue
@@ -79,12 +106,12 @@ def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics:
             try:
                 numeric = float(value)
             except Exception:
-                failed.append(f"{key} missing")
+                record_failure(key, f"{key} missing")
             else:
                 if higher and numeric < float(threshold):
-                    failed.append(f"{key} {numeric} < {threshold}")
+                    record_failure(key, str(value))
                 if not higher and numeric > float(threshold):
-                    failed.append(f"{key} {numeric} > {threshold}")
+                    record_failure(key, str(value))
 
         average_threshold = rule.get("average_threshold")
         if average_threshold is not None:
@@ -92,35 +119,34 @@ def passes_filters(row: dict[str, Any], filters: dict[str, Any], sample_metrics:
             expected_values = int(row.get("prediction_sample_count", 0) or 0)
             values = (sample_metrics or {}).get(key, [])
             if expected_values and values and len(values) < expected_values:
-                failed.append(f"{key} has {len(values)} numeric samples, expected {expected_values}")
+                record_failure(key, f"{key} has {len(values)} numeric samples, expected {expected_values}")
                 continue
             value = row.get(avg_key)
             try:
                 numeric = float(value)
             except Exception:
-                failed.append(f"{avg_key} missing")
+                record_failure(avg_key, f"{avg_key} missing")
             else:
                 if higher and numeric < float(average_threshold):
-                    failed.append(f"{avg_key} {numeric} < {average_threshold}")
+                    record_failure(avg_key, str(value))
                 if not higher and numeric > float(average_threshold):
-                    failed.append(f"{avg_key} {numeric} > {average_threshold}")
+                    record_failure(avg_key, str(value))
 
         all_threshold = rule.get("all_threshold")
         if all_threshold is not None:
             values = (sample_metrics or {}).get(key, [])
             if not values:
-                failed.append(f"{key} samples missing")
+                record_failure(key, f"{key} samples missing")
                 continue
             expected_values = int(row.get("prediction_sample_count", len(values)) or len(values))
             if len(values) < expected_values:
-                failed.append(f"{key} has {len(values)} numeric samples, expected {expected_values}")
+                record_failure(key, f"{key} has {len(values)} numeric samples, expected {expected_values}")
                 continue
             bad_values = [value for value in values if value < float(all_threshold)] if higher else [
                 value for value in values if value > float(all_threshold)
             ]
             if bad_values:
-                op = ">=" if higher else "<="
-                failed.append(f"{key} all samples not {op} {all_threshold}: {bad_values}")
+                record_failure(key, ",".join(str(value) for value in bad_values))
     return (not failed, "; ".join(failed))
 
 
@@ -143,8 +169,22 @@ def first_chain_id(value: Any, default: str = "A") -> str:
     return chains[0] if chains else default
 
 
-def find_prediction_names(predictions_out: Path) -> list[str]:
-    return [design_name for design_name, _, _ in find_chai1_predictions(predictions_out)]
+def find_prediction_records(settings: dict[str, Any], screen: dict[str, Any]) -> dict[str, tuple[Path, Path]]:
+    prediction_stage = str(screen.get("prediction_stage", "chai1")).lower()
+    if prediction_stage == "chai1":
+        prediction_dirs = [stage_dir(settings, "chai1")]
+    elif prediction_stage == "nise":
+        prediction_dirs = sorted(stage_dir(settings, "nise").glob("round_*/chai1"))
+    else:
+        raise ValueError("screening.prediction_stage must be chai1 or nise")
+
+    records: dict[str, tuple[Path, Path]] = {}
+    for prediction_dir in prediction_dirs:
+        for design_name, pdb_path, metrics_path in find_chai1_predictions(prediction_dir):
+            if design_name in records:
+                raise ValueError(f"Duplicate prediction name across screening inputs: {design_name}")
+            records[design_name] = (pdb_path, metrics_path)
+    return records
 
 
 def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
@@ -155,6 +195,22 @@ def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
         if row.get("design_name"):
             done.add(row["design_name"])
     return done
+
+
+def processed_sequences(csv_path: Path, binder_chain: str) -> dict[str, str]:
+    """Map screened binder sequences to the first design that used them."""
+    seen: dict[str, str] = {}
+    for row in read_csv_rows(csv_path):
+        if row.get("status", "").startswith("failed"):
+            continue
+        sequence = row.get("sequence", "")
+        if not sequence and row.get("input_prediction"):
+            prediction_path = Path(row["input_prediction"])
+            if prediction_path.exists():
+                sequence = extract_chain_sequences(prediction_path, [binder_chain]).get(binder_chain, "")
+        if sequence:
+            seen.setdefault(sequence.upper(), row.get("design_name", "unknown design"))
+    return seen
 
 
 def add_chai1_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -> None:
@@ -188,9 +244,11 @@ def main() -> int:
     for path in (pdb_dir, relaxed_dir, accepted_dir):
         path.mkdir(parents=True, exist_ok=True)
 
-    chai1_out = stage_dir(settings, "chai1")
-    names = find_prediction_names(chai1_out)
+    prediction_records = find_prediction_records(settings, screen)
+    names = list(prediction_records)
     metrics_csv = out / "screening_metrics.csv"
+    fields = BASE_FIELDS + PREDICTION_FIELDS + INTERFACE_FIELDS
+    ensure_csv_fields(metrics_csv, fields, removable_fields=LEGACY_INTERFACE_FIELDS)
     done = processed_names(metrics_csv, bool(screen.get("rerun_failed", False)))
     pending = [name for name in names if name not in done]
     if args.limit is not None:
@@ -199,10 +257,10 @@ def main() -> int:
     if not pending:
         return 0
 
-    fields = BASE_FIELDS + PREDICTION_FIELDS + INTERFACE_FIELDS
     binder_chain = screen.get("binder_chain", settings.get("binder_chain", "B"))
     target_chain = screen.get("target_chain", first_chain_id(settings.get("target_chains", "A")))
     filters = screen.get("filters", {})
+    seen_sequences = processed_sequences(metrics_csv, str(binder_chain))
 
     for design_name in pending:
         start = time.time()
@@ -211,7 +269,7 @@ def main() -> int:
         row: dict[str, Any] = {"design_name": design_name}
         try:
             sample_metrics: dict[str, list[float]] = {}
-            prediction_path, metrics_path = find_chai1_prediction(chai1_out, design_name)
+            prediction_path, metrics_path = prediction_records[design_name]
             if not prediction_path or not metrics_path:
                 raise FileNotFoundError("Chai-1 PDB/metrics JSON not found")
             with metrics_path.open() as handle:
@@ -222,7 +280,31 @@ def main() -> int:
             row.update({key: value for key, value in flat_conf.items() if key in PREDICTION_FIELDS})
             add_chai1_summary_metrics(row, confidence)
 
-            passed, reason = passes_filters(row, chai1_filters(filters), sample_metrics)
+            sequence = extract_chain_sequences(prediction_path, [str(binder_chain)]).get(str(binder_chain), "")
+            row["sequence"] = sequence
+            sequence_key = sequence.upper()
+            if sequence_key and sequence_key in seen_sequences:
+                row.update(
+                    {
+                        "status": "filtered",
+                        "sequence": sequence,
+                        "input_prediction": str(prediction_path),
+                        "unrelaxed_pdb": "",
+                        "relaxed_pdb": "",
+                        "unrelaxed_clashes": "",
+                        "relaxed_clashes": "",
+                        "reason": f"duplicate sequence (same as {seen_sequences[sequence_key]})",
+                    }
+                )
+                row["elapsed_seconds"] = round(time.time() - start, 2)
+                append_csv(metrics_csv, row, fields)
+                print(f"{design_name}: {row['status']} {row['reason']}")
+                continue
+            if sequence_key:
+                seen_sequences[sequence_key] = design_name
+
+            failed_metrics: list[str] = []
+            passed, reason = passes_filters(row, chai1_filters(filters), sample_metrics, failed_metrics)
             if not passed:
                 row.update(
                     {
@@ -234,6 +316,8 @@ def main() -> int:
                         "unrelaxed_clashes": "",
                         "relaxed_clashes": "",
                         "reason": reason,
+                        "failed_metric": ";".join(failed_metrics),
+                        "failed_value": reason,
                     }
                 )
                 row["elapsed_seconds"] = round(time.time() - start, 2)
@@ -241,7 +325,6 @@ def main() -> int:
                 print(f"{design_name}: {row['status']} {row.get('reason', '')}")
                 continue
 
-            sequence = extract_chain_sequences(prediction_path, [str(binder_chain)]).get(str(binder_chain), "")
             unrelaxed_pdb = pdb_dir / f"{design_name}_chai1.pdb"
             if not unrelaxed_pdb.exists() or unrelaxed_pdb.stat().st_size == 0:
                 shutil.copy2(prediction_path, unrelaxed_pdb)
@@ -281,13 +364,19 @@ def main() -> int:
                     "reason": "",
                 }
             )
-            passed, reason = passes_filters(row, post_prediction_filters(filters), sample_metrics)
+            failed_metrics = []
+            passed, reason = passes_filters(row, post_prediction_filters(filters), sample_metrics, failed_metrics)
             if not passed:
                 row["status"] = "filtered"
                 row["reason"] = reason
+                row["failed_metric"] = ";".join(failed_metrics)
+                row["failed_value"] = reason
             else:
                 shutil.copy2(relaxed_pdb, accepted_dir / relaxed_pdb.name)
         except Exception as exc:
+            failed_sequence = str(row.get("sequence", "")).upper()
+            if failed_sequence and seen_sequences.get(failed_sequence) == design_name:
+                del seen_sequences[failed_sequence]
             row.update(
                 {
                     "status": "failed",

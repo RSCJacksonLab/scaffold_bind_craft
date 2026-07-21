@@ -137,6 +137,11 @@ def main() -> int:
     target_chain_ids = list(target_sequences.keys())
     binder_chain = str(chai1.get("binder_chain", settings.get("binder_chain", "B")))
     existing = {design_name for design_name, _, _ in find_chai1_predictions(out)}
+    seen_sequences: dict[str, str] = {}
+    for design_name, pdb_path, _ in find_chai1_predictions(out):
+        sequence = extract_chain_sequences(pdb_path, [binder_chain]).get(binder_chain, "")
+        if sequence:
+            seen_sequences.setdefault(sequence.upper(), design_name)
 
     designs: list[tuple[str, str, Path, dict[str, str]]] = []
     max_per_backbone = chai1.get("max_sequences_per_backbone")
@@ -148,6 +153,11 @@ def main() -> int:
             design_name = f"{fasta.stem}_mpnn{index}"
             if design_name in existing:
                 continue
+            sequence_key = seq.upper()
+            if sequence_key in seen_sequences:
+                print(f"{design_name}: skipped duplicate sequence (same as {seen_sequences[sequence_key]})")
+                continue
+            seen_sequences[sequence_key] = design_name
             input_path = input_dir / f"{design_name}.fasta"
             sequences = dict(target_sequences)
             sequences[binder_chain] = seq

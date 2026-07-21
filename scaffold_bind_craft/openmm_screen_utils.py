@@ -135,21 +135,37 @@ def pr_alternative_score_interface(pdb_file: str | Path, binder_chain: str = "B"
     interface_bunsch_percentage = (
         hbond_stats.buried_unsat_hbonds / interface_nres * 100.0 if interface_nres else None
     )
+    buried_polar_satisfaction_percentage = (
+        hbond_stats.buried_satisfied_polar_atoms / hbond_stats.buried_polar_atoms_total * 100.0
+        if hbond_stats.buried_polar_atoms_total
+        else None
+    )
+    interface_hbonds_per_1000_dsasa = (
+        hbond_stats.binder_target_hbonds / interface_total_dSASA * 1000.0
+        if interface_total_dSASA > 0.0
+        else None
+    )
 
     hydrophobic_count = sum(interface_aa[aa] for aa in HYDROPHOBIC_AA_SET)
     interface_scores = {
-        "binder_score": -1.0,
         "surface_hydrophobicity": surface_hydrophobicity_fraction,
-        "interface_sc": _calculate_shape_complementarity(pdb_file, binder_chain, target_chain),
-        "interface_packstat": 0.65,
-        "interface_dG": -10.0,
         "interface_dSASA": interface_total_dSASA,
-        "interface_dG_SASA_ratio": 0.0,
         "interface_fraction": interface_binder_fraction,
         "interface_hydrophobicity": hydrophobic_count / interface_nres * 100.0 if interface_nres else 0.0,
         "interface_nres": interface_nres,
         "interface_interface_hbonds": hbond_stats.binder_target_hbonds,
         "interface_hbond_percentage": interface_hbond_percentage,
+        "hbonds_per_1000_dSASA": interface_hbonds_per_1000_dsasa,
+        "buried_polar_atoms_total": hbond_stats.buried_polar_atoms_total,
+        "buried_satisfied_polar_atoms": hbond_stats.buried_satisfied_polar_atoms,
+        "buried_unsatisfied_polar_atoms": hbond_stats.buried_unsat_hbonds,
+        "buried_polar_satisfaction_percentage": buried_polar_satisfaction_percentage,
+        "binder_buried_unsatisfied_polar_atoms": hbond_stats.binder_buried_unsatisfied_polar_atoms,
+        "target_buried_unsatisfied_polar_atoms": hbond_stats.target_buried_unsatisfied_polar_atoms,
+        "buried_unsatisfied_donor_atoms": hbond_stats.buried_unsatisfied_donor_atoms,
+        "buried_unsatisfied_acceptor_atoms": hbond_stats.buried_unsatisfied_acceptor_atoms,
+        "delta_buried_unsatisfied_polar_atoms": hbond_stats.delta_buried_unsatisfied_polar_atoms,
+        "salt_bridges": hbond_stats.binder_target_salt_bridges,
         "interface_delta_unsat_hbonds": hbond_stats.buried_unsat_hbonds,
         "interface_delta_unsat_hbonds_percentage": interface_bunsch_percentage,
     }
@@ -495,32 +511,6 @@ def _compute_sasa_metrics_with_freesasa(pdb_file_path: str | Path, binder_chain:
         for path in tmp_paths:
             with contextlib.suppress(Exception):
                 os.remove(path)
-
-
-def _calculate_shape_complementarity(pdb_file_path: str | Path, binder_chain: str, target_chain: str) -> float:
-    candidates = [
-        os.environ.get("SC_RS_BIN"),
-        os.environ.get("SC_BIN"),
-        shutil.which("sc"),
-        shutil.which("sc-rs"),
-        shutil.which("shape-complementarity"),
-    ]
-    sc_bin = next((candidate for candidate in candidates if candidate and os.path.isfile(candidate)), None)
-    if sc_bin is None:
-        return 0.70
-    try:
-        proc = subprocess.run(
-            [sc_bin, str(pdb_file_path), str(target_chain), str(binder_chain), "--json"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        payload = json.loads(proc.stdout.strip())
-        value = float(payload.get("sc", payload.get("sc_value", 0.70)))
-        return value if 0.0 <= value <= 1.0 else 0.70
-    except Exception:
-        return 0.70
 
 
 def _get_openmm_forcefield():

@@ -135,6 +135,7 @@
     "interface_sasa_threshold": 1.0
   },
   "screening": {
+    "prediction_stage": "nise",
     "use_gpu_relax": true,
     "use_faspr_repack": true,
     "openmm_timeout_seconds": 1800,
@@ -162,10 +163,6 @@
       "relaxed_clashes": {
         "threshold": 0,
         "higher": false
-      },
-      "interface_interface_sc": {
-        "threshold": 0.6,
-        "higher": true
       },
       "interface_interface_dSASA": {
         "threshold": 650,

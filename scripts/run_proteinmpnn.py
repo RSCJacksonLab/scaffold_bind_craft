@@ -44,9 +44,16 @@ def main() -> int:
     seqs_dir.mkdir(parents=True, exist_ok=True)
     staging_dir.mkdir(parents=True, exist_ok=True)
 
-    rso_dir = stage_dir(settings, "rso") / "accepted_pdbs"
-    input_dir = Path(mpnn.get("input_pdb_dir", rso_dir)).expanduser().resolve()
-    pdbs = sorted(input_dir.glob("*.pdb"))
+    input_pdb_setting = mpnn.get("input_pdb")
+    if input_pdb_setting:
+        input_pdb = Path(str(input_pdb_setting)).expanduser().resolve()
+        if not input_pdb.exists():
+            raise FileNotFoundError(f"ProteinMPNN input PDB not found: {input_pdb}")
+        pdbs = [input_pdb]
+    else:
+        rso_dir = stage_dir(settings, "rso") / "accepted_pdbs"
+        input_dir = Path(mpnn.get("input_pdb_dir", rso_dir)).expanduser().resolve()
+        pdbs = sorted(input_dir.glob("*.pdb"))
     required = int(mpnn.get("num_seq_per_target", 4))
 
     pending: list[Path] = []

@@ -12,12 +12,22 @@ from scipy.spatial import cKDTree
 POLAR_ELEMENTS = {"N", "O", "S"}
 ACCEPTOR_ELEMENTS = {"N", "O", "S"}
 DONOR_ELEMENTS = {"N", "O", "S"}
+POSITIVE_SIDECHAIN_ATOMS = {("ARG", "NE"), ("ARG", "NH1"), ("ARG", "NH2"), ("LYS", "NZ")}
+NEGATIVE_SIDECHAIN_ATOMS = {("ASP", "OD1"), ("ASP", "OD2"), ("GLU", "OE1"), ("GLU", "OE2")}
 
 
 @dataclass(frozen=True)
 class HBondStats:
-    binder_target_hbonds: int
-    buried_unsat_hbonds: int
+    binder_target_hbonds: int = 0
+    buried_polar_atoms_total: int = 0
+    buried_satisfied_polar_atoms: int = 0
+    buried_unsat_hbonds: int = 0
+    binder_buried_unsatisfied_polar_atoms: int = 0
+    target_buried_unsatisfied_polar_atoms: int = 0
+    buried_unsatisfied_donor_atoms: int = 0
+    buried_unsatisfied_acceptor_atoms: int = 0
+    delta_buried_unsatisfied_polar_atoms: int = 0
+    binder_target_salt_bridges: int = 0
 
 
 def count_hbonds_and_buried_unsats(
@@ -41,7 +51,7 @@ def count_hbonds_and_buried_unsats(
     structure = parser.get_structure("complex", str(pdb_path))
     model = structure[0]
     if binder_chain not in model or target_chain not in model:
-        return HBondStats(0, 0)
+        return HBondStats()
 
     atoms = [atom for atom in model.get_atoms() if _is_heavy_atom(atom)]
     hydrogens = [atom for atom in model.get_atoms() if _element(atom) == "H"]
@@ -63,18 +73,46 @@ def count_hbonds_and_buried_unsats(
     )
 
     satisfied_atom_ids = {id(donor) for donor, _ in hbonds} | {id(acceptor) for _, acceptor in hbonds}
-    buried_unsats = 0
-    for atom in _buried_interface_polar_atoms(
+    buried_interface_polar_atoms = _buried_interface_polar_atoms(
         model,
         str(binder_chain),
         str(target_chain),
         buried_sasa_cutoff=buried_sasa_cutoff,
         interface_distance=interface_distance,
-    ):
-        if id(atom) not in satisfied_atom_ids:
-            buried_unsats += 1
+    )
+    buried_satisfied = sum(id(atom) in satisfied_atom_ids for atom in buried_interface_polar_atoms)
+    buried_unsatisfied_atoms = [atom for atom in buried_interface_polar_atoms if id(atom) not in satisfied_atom_ids]
+    binder_buried_unsats = sum(_chain_id(atom) == str(binder_chain) for atom in buried_unsatisfied_atoms)
+    target_buried_unsats = sum(_chain_id(atom) == str(target_chain) for atom in buried_unsatisfied_atoms)
 
-    return HBondStats(binder_target_hbonds=binder_target_hbonds, buried_unsat_hbonds=buried_unsats)
+    intrachain_satisfied_atom_ids = {
+        id(atom)
+        for donor, acceptor in hbonds
+        if _chain_id(donor) == _chain_id(acceptor)
+        for atom in (donor, acceptor)
+    }
+    unbound_buried_unsats = _count_unbound_buried_unsatisfied_interface_atoms(
+        model,
+        str(binder_chain),
+        str(target_chain),
+        intrachain_satisfied_atom_ids,
+        buried_sasa_cutoff,
+        interface_distance,
+    )
+    buried_unsats = len(buried_unsatisfied_atoms)
+
+    return HBondStats(
+        binder_target_hbonds=binder_target_hbonds,
+        buried_polar_atoms_total=len(buried_interface_polar_atoms),
+        buried_satisfied_polar_atoms=buried_satisfied,
+        buried_unsat_hbonds=buried_unsats,
+        binder_buried_unsatisfied_polar_atoms=binder_buried_unsats,
+        target_buried_unsatisfied_polar_atoms=target_buried_unsats,
+        buried_unsatisfied_donor_atoms=sum(_is_donor(atom) for atom in buried_unsatisfied_atoms),
+        buried_unsatisfied_acceptor_atoms=sum(_is_acceptor(atom) for atom in buried_unsatisfied_atoms),
+        delta_buried_unsatisfied_polar_atoms=buried_unsats - unbound_buried_unsats,
+        binder_target_salt_bridges=_count_salt_bridges(model, str(binder_chain), str(target_chain)),
+    )
 
 
 def _find_hbonds(
@@ -126,6 +164,14 @@ def _buried_interface_polar_atoms(
 ) -> list:
     sr = ShrakeRupley(probe_radius=1.4, n_points=960)
     sr.compute(model, level="A")
+    return [
+        atom
+        for atom in _interface_polar_atoms(model, binder_chain, target_chain, interface_distance)
+        if getattr(atom, "sasa", 0.0) <= buried_sasa_cutoff
+    ]
+
+
+def _interface_polar_atoms(model, binder_chain: str, target_chain: str, interface_distance: float) -> list:
     if binder_chain not in model or target_chain not in model:
         return []
 
@@ -144,16 +190,67 @@ def _buried_interface_polar_atoms(
             if tree.query_ball_point(atom.coord, interface_distance):
                 interface_atom_ids.add(id(atom))
 
-    buried = []
+    interface_polar_atoms = []
     for chain_id in (binder_chain, target_chain):
         for atom in Selection.unfold_entities(model[chain_id], "A"):
-            if (
-                id(atom) in interface_atom_ids
-                and _is_polar_heavy_atom(atom)
-                and getattr(atom, "sasa", 0.0) <= buried_sasa_cutoff
-            ):
-                buried.append(atom)
-    return buried
+            if id(atom) in interface_atom_ids and _is_polar_heavy_atom(atom):
+                interface_polar_atoms.append(atom)
+    return interface_polar_atoms
+
+
+def _count_unbound_buried_unsatisfied_interface_atoms(
+    model,
+    binder_chain: str,
+    target_chain: str,
+    intrachain_satisfied_atom_ids: set[int],
+    buried_sasa_cutoff: float,
+    interface_distance: float,
+) -> int:
+    interface_polar_atoms = _interface_polar_atoms(model, binder_chain, target_chain, interface_distance)
+    count = 0
+    sr = ShrakeRupley(probe_radius=1.4, n_points=960)
+    for chain_id in (binder_chain, target_chain):
+        sr.compute(model[chain_id], level="A")
+        count += sum(
+            _chain_id(atom) == chain_id
+            and getattr(atom, "sasa", 0.0) <= buried_sasa_cutoff
+            and id(atom) not in intrachain_satisfied_atom_ids
+            for atom in interface_polar_atoms
+        )
+    return count
+
+
+def _count_salt_bridges(model, binder_chain: str, target_chain: str, distance_cutoff: float = 4.0) -> int:
+    charged_atoms: dict[str, dict[str, list]] = {}
+    for chain_id in (binder_chain, target_chain):
+        positive = []
+        negative = []
+        for atom in Selection.unfold_entities(model[chain_id], "A"):
+            key = (atom.get_parent().get_resname().strip().upper(), atom.get_name().strip().upper())
+            if key in POSITIVE_SIDECHAIN_ATOMS:
+                positive.append(atom)
+            elif key in NEGATIVE_SIDECHAIN_ATOMS:
+                negative.append(atom)
+        charged_atoms[chain_id] = {"positive": positive, "negative": negative}
+
+    residue_pairs = set()
+    for positive_chain, negative_chain in ((binder_chain, target_chain), (target_chain, binder_chain)):
+        negative_atoms = charged_atoms[negative_chain]["negative"]
+        if not negative_atoms:
+            continue
+        tree = cKDTree(np.array([atom.coord for atom in negative_atoms]))
+        for positive_atom in charged_atoms[positive_chain]["positive"]:
+            for index in tree.query_ball_point(positive_atom.coord, distance_cutoff):
+                negative_atom = negative_atoms[index]
+                residue_pairs.add(
+                    (
+                        positive_chain,
+                        positive_atom.get_parent().id,
+                        negative_chain,
+                        negative_atom.get_parent().id,
+                    )
+                )
+    return len(residue_pairs)
 
 
 def _map_hydrogens_to_donors(heavy_atoms: list, hydrogens: list) -> dict[int, list]:
@@ -211,6 +308,10 @@ def _element(atom) -> str:
         return element
     name = atom.get_name().strip().upper()
     return name[0] if name else ""
+
+
+def _chain_id(atom) -> str:
+    return str(atom.get_parent().get_parent().id)
 
 
 def _angle_degrees(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:

@@ -37,6 +37,34 @@ def append_csv(path: Path, row: dict[str, Any], fieldnames: Iterable[str]) -> No
         writer.writerow(row)
 
 
+def ensure_csv_fields(
+    path: Path,
+    fieldnames: Iterable[str],
+    removable_fields: Iterable[str] = (),
+) -> None:
+    """Expand an existing CSV schema without dropping or shifting old data."""
+    if not path.exists() or path.stat().st_size == 0:
+        return
+    ordered = list(fieldnames)
+    removable = set(removable_fields)
+    with path.open(newline="") as handle:
+        reader = csv.DictReader(handle)
+        existing = list(reader.fieldnames or [])
+        if existing == ordered:
+            return
+        unknown = [field for field in existing if field not in ordered and field not in removable]
+        if unknown:
+            raise ValueError(f"Cannot migrate {path}: unknown existing CSV fields: {unknown}")
+        rows = list(reader)
+
+    temporary = path.with_suffix(path.suffix + ".schema.tmp")
+    with temporary.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=ordered, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(temporary, path)
+
+
 def read_csv_rows(path: Path) -> list[dict[str, str]]:
     if not path.exists() or path.stat().st_size == 0:
         return []

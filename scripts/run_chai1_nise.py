@@ -303,11 +303,30 @@ def write_nise_fixed_positions(
 
 
 def select_initial_backbones(settings: dict[str, Any], nise: dict[str, Any]) -> list[dict[str, Any]]:
+    initial_pdb_setting = nise.get("initial_pdb")
+    if initial_pdb_setting:
+        initial_pdb = Path(str(initial_pdb_setting)).expanduser().resolve()
+        if not initial_pdb.exists():
+            raise FileNotFoundError(f"NISE initial PDB not found: {initial_pdb}")
+        initial_name = str(nise.get("initial_name", initial_pdb.stem))
+        return [
+            {
+                "rso_name": initial_name,
+                "rso_pdb": str(initial_pdb),
+                "parent_name": initial_name,
+                "parent_pdb": str(initial_pdb),
+                "score": float(nise.get("initial_score", 1.0)),
+                "source": "nise.initial_pdb",
+            }
+        ]
+
     chai1_out = stage_dir(settings, "chai1")
     metrics_csv = chai1_out / "chai1_metrics.csv"
     score_field = str(nise.get("score_field", "chai1_aggregate_score"))
     threshold = float(nise.get("threshold", 0.7))
     rows = read_csv_rows(metrics_csv)
+    mpnn_input_setting = settings.get("proteinmpnn", {}).get("input_pdb")
+    mpnn_input_pdb = Path(str(mpnn_input_setting)).expanduser().resolve() if mpnn_input_setting else None
     selected: list[dict[str, Any]] = []
     for row in rows:
         if row.get("status") != "completed":
@@ -321,8 +340,8 @@ def select_initial_backbones(settings: dict[str, Any], nise: dict[str, Any]) -> 
             continue
         selected.append(
             {
-                "rso_name": rso_name_for_design(row["design_name"]),
-                "rso_pdb": str(stage_dir(settings, "rso") / "accepted_pdbs" / f"{rso_name_for_design(row['design_name'])}.pdb"),
+                "rso_name": mpnn_input_pdb.stem if mpnn_input_pdb else rso_name_for_design(row["design_name"]),
+                "rso_pdb": str(mpnn_input_pdb or (stage_dir(settings, "rso") / "accepted_pdbs" / f"{rso_name_for_design(row['design_name'])}.pdb")),
                 "parent_name": row["design_name"],
                 "parent_pdb": str(pdb_path),
                 "score": score,
@@ -494,6 +513,12 @@ def build_chai_designs(
     existing = {design_name for design_name, _, _ in find_chai1_predictions(round_dir / "chai1")}
     target_sequences = sequence_inputs(settings)
     binder_chain = str(nise.get("binder_chain", settings.get("binder_chain", "B")))
+    seen_sequences: dict[str, str] = {}
+    for chai_dir in sorted(out.glob("round_*/chai1")):
+        for prior_name, pdb_path, _ in find_chai1_predictions(chai_dir):
+            sequence = extract_chain_sequences(pdb_path, [binder_chain]).get(binder_chain, "")
+            if sequence:
+                seen_sequences.setdefault(sequence.upper(), prior_name)
     max_per_backbone = nise.get("max_sequences_per_backbone")
     designs: list[tuple[str, dict[str, Any], Path]] = []
     mpnn_number = 0
@@ -509,6 +534,11 @@ def build_chai_designs(
             design_name = f"NISE-{round_index}-{mpnn_number}"
             if design_name in existing:
                 continue
+            sequence_key = seq.upper()
+            if sequence_key in seen_sequences:
+                print(f"{design_name}: skipped duplicate sequence (same as {seen_sequences[sequence_key]})")
+                continue
+            seen_sequences[sequence_key] = design_name
             input_path = input_dir / f"{design_name}.fasta"
             sequences = dict(target_sequences)
             sequences[binder_chain] = seq
