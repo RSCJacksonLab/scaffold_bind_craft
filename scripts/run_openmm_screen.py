@@ -34,8 +34,6 @@ BASE_FIELDS = [
     "unrelaxed_clashes",
     "relaxed_clashes",
     "reason",
-    "failed_metric",
-    "failed_value",
     "elapsed_seconds",
 ]
 
@@ -51,12 +49,12 @@ PREDICTION_FIELDS = [
 
 INTERFACE_FIELDS = [
     "interface_surface_hydrophobicity",
-    "interface_interface_dSASA",
-    "interface_interface_fraction",
-    "interface_interface_hydrophobicity",
-    "interface_interface_nres",
-    "interface_interface_interface_hbonds",
-    "interface_interface_hbond_percentage",
+    "interface_dSASA",
+    "interface_fraction",
+    "interface_hydrophobicity",
+    "interface_nres",
+    "interface_hbonds",
+    "interface_hbond_percentage",
     "interface_hbonds_per_1000_dSASA",
     "interface_buried_polar_atoms_total",
     "interface_buried_satisfied_polar_atoms",
@@ -68,18 +66,29 @@ INTERFACE_FIELDS = [
     "interface_buried_unsatisfied_acceptor_atoms",
     "interface_delta_buried_unsatisfied_polar_atoms",
     "interface_salt_bridges",
-    "interface_interface_delta_unsat_hbonds",
-    "interface_interface_delta_unsat_hbonds_percentage",
     "interface_residues",
     "interface_amino_acids",
 ]
 
 LEGACY_INTERFACE_FIELDS = {
+    "failed_metric",
+    "failed_value",
     "interface_binder_score",
     "interface_interface_sc",
     "interface_interface_packstat",
     "interface_interface_dG",
     "interface_interface_dG_SASA_ratio",
+    "interface_interface_delta_unsat_hbonds_percentage",
+}
+
+RENAMED_INTERFACE_FIELDS = {
+    "interface_interface_dSASA": "interface_dSASA",
+    "interface_interface_fraction": "interface_fraction",
+    "interface_interface_hydrophobicity": "interface_hydrophobicity",
+    "interface_interface_nres": "interface_nres",
+    "interface_interface_interface_hbonds": "interface_hbonds",
+    "interface_interface_hbond_percentage": "interface_hbond_percentage",
+    "interface_interface_delta_unsat_hbonds": "interface_buried_unsatisfied_polar_atoms",
 }
 
 
@@ -87,14 +96,11 @@ def passes_filters(
     row: dict[str, Any],
     filters: dict[str, Any],
     sample_metrics: dict[str, list[float]] | None = None,
-    failed_metrics: list[str] | None = None,
 ) -> tuple[bool, str]:
     failed: list[str] = []
 
-    def record_failure(metric: str, value: str) -> None:
+    def record_failure(value: str) -> None:
         failed.append(value)
-        if failed_metrics is not None:
-            failed_metrics.append(metric)
 
     for key, rule in filters.items():
         if not isinstance(rule, dict):
@@ -106,12 +112,12 @@ def passes_filters(
             try:
                 numeric = float(value)
             except Exception:
-                record_failure(key, f"{key} missing")
+                record_failure(f"{key} missing")
             else:
                 if higher and numeric < float(threshold):
-                    record_failure(key, str(value))
+                    record_failure(str(value))
                 if not higher and numeric > float(threshold):
-                    record_failure(key, str(value))
+                    record_failure(str(value))
 
         average_threshold = rule.get("average_threshold")
         if average_threshold is not None:
@@ -119,34 +125,34 @@ def passes_filters(
             expected_values = int(row.get("prediction_sample_count", 0) or 0)
             values = (sample_metrics or {}).get(key, [])
             if expected_values and values and len(values) < expected_values:
-                record_failure(key, f"{key} has {len(values)} numeric samples, expected {expected_values}")
+                record_failure(f"{key} has {len(values)} numeric samples, expected {expected_values}")
                 continue
             value = row.get(avg_key)
             try:
                 numeric = float(value)
             except Exception:
-                record_failure(avg_key, f"{avg_key} missing")
+                record_failure(f"{avg_key} missing")
             else:
                 if higher and numeric < float(average_threshold):
-                    record_failure(avg_key, str(value))
+                    record_failure(str(value))
                 if not higher and numeric > float(average_threshold):
-                    record_failure(avg_key, str(value))
+                    record_failure(str(value))
 
         all_threshold = rule.get("all_threshold")
         if all_threshold is not None:
             values = (sample_metrics or {}).get(key, [])
             if not values:
-                record_failure(key, f"{key} samples missing")
+                record_failure(f"{key} samples missing")
                 continue
             expected_values = int(row.get("prediction_sample_count", len(values)) or len(values))
             if len(values) < expected_values:
-                record_failure(key, f"{key} has {len(values)} numeric samples, expected {expected_values}")
+                record_failure(f"{key} has {len(values)} numeric samples, expected {expected_values}")
                 continue
             bad_values = [value for value in values if value < float(all_threshold)] if higher else [
                 value for value in values if value > float(all_threshold)
             ]
             if bad_values:
-                record_failure(key, ",".join(str(value) for value in bad_values))
+                record_failure(",".join(str(value) for value in bad_values))
     return (not failed, "; ".join(failed))
 
 
@@ -248,7 +254,12 @@ def main() -> int:
     names = list(prediction_records)
     metrics_csv = out / "screening_metrics.csv"
     fields = BASE_FIELDS + PREDICTION_FIELDS + INTERFACE_FIELDS
-    ensure_csv_fields(metrics_csv, fields, removable_fields=LEGACY_INTERFACE_FIELDS)
+    ensure_csv_fields(
+        metrics_csv,
+        fields,
+        removable_fields=LEGACY_INTERFACE_FIELDS,
+        renamed_fields=RENAMED_INTERFACE_FIELDS,
+    )
     done = processed_names(metrics_csv, bool(screen.get("rerun_failed", False)))
     pending = [name for name in names if name not in done]
     if args.limit is not None:
@@ -303,8 +314,7 @@ def main() -> int:
             if sequence_key:
                 seen_sequences[sequence_key] = design_name
 
-            failed_metrics: list[str] = []
-            passed, reason = passes_filters(row, chai1_filters(filters), sample_metrics, failed_metrics)
+            passed, reason = passes_filters(row, chai1_filters(filters), sample_metrics)
             if not passed:
                 row.update(
                     {
@@ -316,8 +326,6 @@ def main() -> int:
                         "unrelaxed_clashes": "",
                         "relaxed_clashes": "",
                         "reason": reason,
-                        "failed_metric": ";".join(failed_metrics),
-                        "failed_value": reason,
                     }
                 )
                 row["elapsed_seconds"] = round(time.time() - start, 2)
@@ -364,13 +372,10 @@ def main() -> int:
                     "reason": "",
                 }
             )
-            failed_metrics = []
-            passed, reason = passes_filters(row, post_prediction_filters(filters), sample_metrics, failed_metrics)
+            passed, reason = passes_filters(row, post_prediction_filters(filters), sample_metrics)
             if not passed:
                 row["status"] = "filtered"
                 row["reason"] = reason
-                row["failed_metric"] = ";".join(failed_metrics)
-                row["failed_value"] = reason
             else:
                 shutil.copy2(relaxed_pdb, accepted_dir / relaxed_pdb.name)
         except Exception as exc:

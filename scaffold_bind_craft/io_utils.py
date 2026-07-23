@@ -41,21 +41,31 @@ def ensure_csv_fields(
     path: Path,
     fieldnames: Iterable[str],
     removable_fields: Iterable[str] = (),
+    renamed_fields: dict[str, str] | None = None,
 ) -> None:
     """Expand an existing CSV schema without dropping or shifting old data."""
     if not path.exists() or path.stat().st_size == 0:
         return
     ordered = list(fieldnames)
     removable = set(removable_fields)
+    renamed = renamed_fields or {}
     with path.open(newline="") as handle:
         reader = csv.DictReader(handle)
         existing = list(reader.fieldnames or [])
         if existing == ordered:
             return
-        unknown = [field for field in existing if field not in ordered and field not in removable]
+        unknown = [
+            field for field in existing
+            if field not in ordered and field not in removable and field not in renamed
+        ]
         if unknown:
             raise ValueError(f"Cannot migrate {path}: unknown existing CSV fields: {unknown}")
         rows = list(reader)
+
+    for row in rows:
+        for old_field, new_field in renamed.items():
+            if not row.get(new_field) and row.get(old_field) is not None:
+                row[new_field] = row[old_field]
 
     temporary = path.with_suffix(path.suffix + ".schema.tmp")
     with temporary.open("w", newline="") as handle:

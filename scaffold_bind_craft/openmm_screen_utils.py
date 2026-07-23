@@ -132,9 +132,6 @@ def pr_alternative_score_interface(pdb_file: str | Path, binder_chain: str = "B"
     interface_hbond_percentage = (
         hbond_stats.binder_target_hbonds / interface_nres * 100.0 if interface_nres else None
     )
-    interface_bunsch_percentage = (
-        hbond_stats.buried_unsat_hbonds / interface_nres * 100.0 if interface_nres else None
-    )
     buried_polar_satisfaction_percentage = (
         hbond_stats.buried_satisfied_polar_atoms / hbond_stats.buried_polar_atoms_total * 100.0
         if hbond_stats.buried_polar_atoms_total
@@ -149,12 +146,12 @@ def pr_alternative_score_interface(pdb_file: str | Path, binder_chain: str = "B"
     hydrophobic_count = sum(interface_aa[aa] for aa in HYDROPHOBIC_AA_SET)
     interface_scores = {
         "surface_hydrophobicity": surface_hydrophobicity_fraction,
-        "interface_dSASA": interface_total_dSASA,
-        "interface_fraction": interface_binder_fraction,
-        "interface_hydrophobicity": hydrophobic_count / interface_nres * 100.0 if interface_nres else 0.0,
-        "interface_nres": interface_nres,
-        "interface_interface_hbonds": hbond_stats.binder_target_hbonds,
-        "interface_hbond_percentage": interface_hbond_percentage,
+        "dSASA": interface_total_dSASA,
+        "fraction": interface_binder_fraction,
+        "hydrophobicity": hydrophobic_count / interface_nres * 100.0 if interface_nres else 0.0,
+        "nres": interface_nres,
+        "hbonds": hbond_stats.binder_target_hbonds,
+        "hbond_percentage": interface_hbond_percentage,
         "hbonds_per_1000_dSASA": interface_hbonds_per_1000_dsasa,
         "buried_polar_atoms_total": hbond_stats.buried_polar_atoms_total,
         "buried_satisfied_polar_atoms": hbond_stats.buried_satisfied_polar_atoms,
@@ -166,8 +163,6 @@ def pr_alternative_score_interface(pdb_file: str | Path, binder_chain: str = "B"
         "buried_unsatisfied_acceptor_atoms": hbond_stats.buried_unsatisfied_acceptor_atoms,
         "delta_buried_unsatisfied_polar_atoms": hbond_stats.delta_buried_unsatisfied_polar_atoms,
         "salt_bridges": hbond_stats.binder_target_salt_bridges,
-        "interface_delta_unsat_hbonds": hbond_stats.buried_unsat_hbonds,
-        "interface_delta_unsat_hbonds_percentage": interface_bunsch_percentage,
     }
     interface_scores = {key: round(value, 2) if isinstance(value, float) else value for key, value in interface_scores.items()}
     return interface_scores, interface_aa, interface_residue_ids_str
