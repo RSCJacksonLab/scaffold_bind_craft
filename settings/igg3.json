@@ -164,17 +164,21 @@
         "threshold": 0,
         "higher": false
       },
-      "interface_interface_dSASA": {
+      "interface_dSASA": {
         "threshold": 650,
         "higher": true
       },
-      "interface_interface_interface_hbonds": {
-        "threshold": 3,
+      "interface_hbonds": {
+        "threshold": 6,
         "higher": true
       },
-      "interface_interface_delta_unsat_hbonds": {
-        "threshold": 4,
+      "interface_buried_unsatisfied_polar_atoms": {
+        "threshold": 8,
         "higher": false
+      },
+      "interface_buried_polar_satisfaction_percentage": {
+        "threshold": 70,
+        "higher": true
       }
     }
   }
