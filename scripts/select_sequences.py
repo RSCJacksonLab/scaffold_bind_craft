@@ -61,6 +61,63 @@ def select_diverse_sequences(rows: list[dict[str, str]], count: int) -> list[dic
             "design_name": source.get("design_name", ""),
             "sequence": sequence,
             "min_distance_to_previous": min_distance,
+            "selection_metric": "",
+            "selection_metric_value": "",
+            "relaxed_pdb": source.get("relaxed_pdb", ""),
+        })
+    return result
+
+
+def select_by_metric(
+    rows: list[dict[str, str]],
+    count: int,
+    metric: str,
+    lower_is_better: bool = False,
+) -> list[dict[str, str]]:
+    """Select unique accepted sequences by a numeric screening metric."""
+    if count < 1:
+        raise ValueError("count must be at least 1")
+
+    ranked: list[tuple[float, str, str, dict[str, str]]] = []
+    for row in rows:
+        sequence = row.get("sequence", "").strip().upper()
+        if not sequence:
+            continue
+        raw_value = row.get(metric, "").strip()
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        ranked.append((value, row.get("design_name", ""), sequence, row))
+
+    if not ranked:
+        raise ValueError(f"No accepted sequences have a numeric value for metric {metric!r}")
+
+    # Sort best-to-worst, then use design name and sequence for deterministic ties.
+    ranked.sort(key=lambda item: ((item[0] if lower_is_better else -item[0]), item[1], item[2]))
+    unique: list[tuple[float, str, dict[str, str]]] = []
+    seen_sequences: set[str] = set()
+    for value, _design_name, sequence, row in ranked:
+        if sequence in seen_sequences:
+            continue
+        seen_sequences.add(sequence)
+        unique.append((value, sequence, row))
+
+    if count > len(unique):
+        raise ValueError(
+            f"Requested {count} sequences, but only {len(unique)} unique accepted sequences "
+            f"have a numeric {metric!r} value"
+        )
+
+    result: list[dict[str, str]] = []
+    for rank, (value, sequence, source) in enumerate(unique[:count], start=1):
+        result.append({
+            "selection_rank": str(rank),
+            "design_name": source.get("design_name", ""),
+            "sequence": sequence,
+            "min_distance_to_previous": "",
+            "selection_metric": metric,
+            "selection_metric_value": str(value),
             "relaxed_pdb": source.get("relaxed_pdb", ""),
         })
     return result
@@ -104,7 +161,15 @@ def write_outputs(
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "selected_sequences.csv"
     fasta_path = output_dir / "selected_sequences.fasta"
-    fields = ["selection_rank", "design_name", "sequence", "min_distance_to_previous", "relaxed_pdb"]
+    fields = [
+        "selection_rank",
+        "design_name",
+        "sequence",
+        "min_distance_to_previous",
+        "selection_metric",
+        "selection_metric_value",
+        "relaxed_pdb",
+    ]
     with csv_path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -124,6 +189,15 @@ def main() -> int:
     parser.add_argument("--output-dir")
     parser.add_argument("--input-csv", help="Override the OpenMM screening metrics CSV.")
     parser.add_argument("--selection-dir", help="Override the selection output directory.")
+    parser.add_argument(
+        "--metric",
+        help="Select the best accepted sequences by this numeric screening-metrics column instead of diversity.",
+    )
+    parser.add_argument(
+        "--metric-lower-is-better",
+        action="store_true",
+        help="Rank smaller metric values first (the default ranks larger values first).",
+    )
     args = parser.parse_args()
 
     settings = load_settings(args.settings, args.output_dir)
@@ -131,7 +205,17 @@ def main() -> int:
     if not input_csv.exists():
         raise FileNotFoundError(f"Screening metrics CSV not found: {input_csv}")
     accepted = [row for row in read_csv_rows(input_csv) if row.get("status", "").lower() == "accepted"]
-    selected = select_diverse_sequences(accepted, args.num_sequences)
+    if args.metric:
+        selected = select_by_metric(
+            accepted,
+            args.num_sequences,
+            args.metric,
+            lower_is_better=args.metric_lower_is_better,
+        )
+    else:
+        if args.metric_lower_is_better:
+            parser.error("--metric-lower-is-better requires --metric")
+        selected = select_diverse_sequences(accepted, args.num_sequences)
     selection_dir = Path(args.selection_dir).expanduser().resolve() if args.selection_dir else Path(settings["output_dir"]) / "05_sequence_selection"
     csv_path, fasta_path, screening_csv_path = write_outputs(selected, input_csv, selection_dir)
     unique_count = len({row.get("sequence", "").strip().upper() for row in accepted if row.get("sequence", "").strip()})
