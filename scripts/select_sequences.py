@@ -66,7 +66,41 @@ def select_diverse_sequences(rows: list[dict[str, str]], count: int) -> list[dic
     return result
 
 
-def write_outputs(selected: list[dict[str, str]], output_dir: Path) -> tuple[Path, Path]:
+def write_annotated_screening_metrics(
+    input_csv: Path,
+    selected: list[dict[str, str]],
+    output_dir: Path,
+) -> Path:
+    """Copy the screening table and mark the selected accepted designs."""
+    output_path = output_dir / "screening_metrics.csv"
+    selected_designs = {
+        (row["design_name"], row["sequence"].strip().upper())
+        for row in selected
+    }
+    with input_csv.open(newline="") as source:
+        reader = csv.DictReader(source)
+        fields = list(reader.fieldnames or [])
+        if "status" not in fields:
+            raise ValueError(f"Screening metrics CSV has no status column: {input_csv}")
+        rows = list(reader)
+
+    for row in rows:
+        identity = (row.get("design_name", ""), row.get("sequence", "").strip().upper())
+        if row.get("status", "").lower() == "accepted" and identity in selected_designs:
+            row["status"] = "selected"
+
+    with output_path.open("w", newline="") as destination:
+        writer = csv.DictWriter(destination, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    return output_path
+
+
+def write_outputs(
+    selected: list[dict[str, str]],
+    input_csv: Path,
+    output_dir: Path,
+) -> tuple[Path, Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "selected_sequences.csv"
     fasta_path = output_dir / "selected_sequences.fasta"
@@ -79,7 +113,8 @@ def write_outputs(selected: list[dict[str, str]], output_dir: Path) -> tuple[Pat
         for row in selected:
             name = row["design_name"] or f"selected_{row['selection_rank']}"
             handle.write(f">{name} selection_rank={row['selection_rank']}\n{row['sequence']}\n")
-    return csv_path, fasta_path
+    screening_csv_path = write_annotated_screening_metrics(input_csv, selected, output_dir)
+    return csv_path, fasta_path, screening_csv_path
 
 
 def main() -> int:
@@ -98,11 +133,12 @@ def main() -> int:
     accepted = [row for row in read_csv_rows(input_csv) if row.get("status", "").lower() == "accepted"]
     selected = select_diverse_sequences(accepted, args.num_sequences)
     selection_dir = Path(args.selection_dir).expanduser().resolve() if args.selection_dir else Path(settings["output_dir"]) / "05_sequence_selection"
-    csv_path, fasta_path = write_outputs(selected, selection_dir)
+    csv_path, fasta_path, screening_csv_path = write_outputs(selected, input_csv, selection_dir)
     unique_count = len({row.get("sequence", "").strip().upper() for row in accepted if row.get("sequence", "").strip()})
     print(f"Selected {len(selected)} of {len(accepted)} accepted rows ({unique_count} unique sequences)")
     print(f"CSV: {csv_path}")
     print(f"FASTA: {fasta_path}")
+    print(f"Annotated screening metrics: {screening_csv_path}")
     return 0
 
 

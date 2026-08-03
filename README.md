@@ -7,6 +7,7 @@ Modular scaffold binder design pipeline with restartable HPC stages:
 3. `scripts/run_chai1_offline.py` predicts pending ProteinMPNN binder-target sequences with Chai-1 offline in single-sequence mode using ESM embeddings, without MSA or template servers.
 4. Optional `scripts/run_chai1_nise.py` runs a NISE-style select/expand/repredict loop from Chai-1 structures above `nise.threshold` using ProteinMPNN plus Chai-1.
 5. `scripts/run_openmm_screen.py` relaxes Chai-1 PDBs with the local OpenMM path, scores interfaces with PyRosetta-free utilities, and writes accepted relaxed structures.
+6. `scripts/select_sequences.py` greedily selects a diverse subset of accepted binder sequences for wet-lab testing using Hamming distance.
 
 Each script takes the same settings file and creates one subdirectory under `output_dir`. Existing outputs are counted before work starts, so a time-limited HPC job can be resubmitted without restarting completed work.
 
@@ -49,6 +50,7 @@ python3 scripts/run_proteinmpnn.py --settings settings/my_run.json --limit 50
 python3 scripts/run_chai1_offline.py --settings settings/my_run.json --limit 100
 python3 scripts/run_chai1_nise.py --settings settings/my_run.json --limit 100
 python3 scripts/run_openmm_screen.py --settings settings/my_run.json --limit 100
+python3 scripts/select_sequences.py --settings settings/my_run.json --num-sequences 12
 ```
 
 `--limit` is optional. It caps the amount of new work in the current job but does not change the total target counts in the settings file.
@@ -87,6 +89,10 @@ output_dir/
     relaxed_pdbs/
     accepted/
     screening_metrics.csv
+  05_sequence_selection/
+    selected_sequences.csv
+    selected_sequences.fasta
+    screening_metrics.csv
 ```
 
 ## Notes
@@ -102,3 +108,4 @@ output_dir/
 - Chai-1 runs in single-sequence mode by default: `use_esm_embeddings=true`, `use_msa_server=false`, and `use_templates_server=false`. Set `chai1.model_dir` to the predownloaded Chai/ESM weight directory, and tune `chai1.gpu_device`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` as needed for the hardware.
 - Screening records Chai-1 confidence fields as `chai1_plddt`, `chai1_binder_plddt`, `chai1_target_plddt`, `chai1_chain_count`, and `chai1_aggregate_score`. Chai-1 filter rules use `threshold`.
 - OpenMM screening is self-contained in `scaffold_bind_craft.openmm_screen_utils` and `scaffold_bind_craft.hbond_utils`. It records structure-specific binder-target H-bonds and approximate buried unsatisfied polar atoms from the relaxed PDB.
+- Sequence selection deduplicates accepted sequences, chooses an initial sequence with the largest total distance to the pool, then repeatedly chooses the sequence with the greatest minimum Hamming distance to the selected set. All accepted sequences must have the same length. It also copies the full screening metrics table into the selection directory and changes the chosen designs' status from `accepted` to `selected`.
