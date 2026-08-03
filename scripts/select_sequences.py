@@ -127,11 +127,16 @@ def write_annotated_screening_metrics(
     input_csv: Path,
     selected: list[dict[str, str]],
     output_dir: Path,
+    fasta_heading: str | None = None,
 ) -> Path:
     """Copy the screening table and mark the selected accepted designs."""
     output_path = output_dir / "screening_metrics.csv"
-    selected_designs = {
-        (row["design_name"], row["sequence"].strip().upper())
+    selected_aliases = {
+        (row["design_name"], row["sequence"].strip().upper()): (
+            f"{fasta_heading}{row['selection_rank']}"
+            if fasta_heading is not None
+            else row["design_name"] or f"selected_{row['selection_rank']}"
+        )
         for row in selected
     }
     with input_csv.open(newline="") as source:
@@ -139,12 +144,16 @@ def write_annotated_screening_metrics(
         fields = list(reader.fieldnames or [])
         if "status" not in fields:
             raise ValueError(f"Screening metrics CSV has no status column: {input_csv}")
+        if "design_alias" not in fields:
+            fields.append("design_alias")
         rows = list(reader)
 
     for row in rows:
         identity = (row.get("design_name", ""), row.get("sequence", "").strip().upper())
-        if row.get("status", "").lower() == "accepted" and identity in selected_designs:
+        row["design_alias"] = ""
+        if row.get("status", "").lower() == "accepted" and identity in selected_aliases:
             row["status"] = "selected"
+            row["design_alias"] = selected_aliases[identity]
 
     with output_path.open("w", newline="") as destination:
         writer = csv.DictWriter(destination, fieldnames=fields)
@@ -183,7 +192,12 @@ def write_outputs(
                 else row["design_name"] or f"selected_{row['selection_rank']}"
             )
             handle.write(f">{name}\n{row['sequence']}\n")
-    screening_csv_path = write_annotated_screening_metrics(input_csv, selected, output_dir)
+    screening_csv_path = write_annotated_screening_metrics(
+        input_csv,
+        selected,
+        output_dir,
+        fasta_heading=fasta_heading,
+    )
     return csv_path, fasta_path, screening_csv_path
 
 
