@@ -19,7 +19,7 @@ python3 -m venv pmpnn
 source pmpnn/bin/activate
 
 #install dependencies
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 #clone ProteinMPNN
 cd /path/to/repo/dir
