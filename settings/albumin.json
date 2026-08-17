@@ -1,0 +1,155 @@
+{
+  "output_dir": "/scratch/xz2/ty6885/HSA_test_run",
+  "input_pdb": "/scratch/xz2/ty6885/inputs/HSA_all5.pdb",
+  "target_chains": "A",
+  "binder_chain": "B",
+  "hotspot_residues": "A212,A309,A318,A321,A326,A329",
+  "design_positions": "B5 B6 B8 B9 B10 B12 B13 B14 B16 B17 B20 B21 B26 B27 B29 B30 B34 B37",
+  "fixed_positions": "B1-B4,B7,B11,B15,B18-B19,B22-B25,B28,B31-B33,B35-B36,B38-B62",
+  "tools": {
+   "colabdesign_path": "/scratch/xz2/ab8507/scaffold_bindcraft/envs/colabdesign_modified",
+   "alphafold_params_dir": "/scratch/xz2/colabfold_params/",
+   "proteinmpnn_path": "/scratch/xz2/ab8507/scaffold_bindcraft/ProteinMPNN"
+  },
+  "stages": {
+    "rso": {
+      "dir": "01_rso"
+    },
+    "proteinmpnn": {
+      "dir": "02_proteinmpnn"
+    },
+    "chai1": {
+      "dir": "03_chai1"
+    },
+    "openmm": {
+      "dir": "04_openmm_screen"
+    }
+  },
+  "rso": {
+    "num_structures": 250,
+    "seed": 5,
+    "target_chains": "A",
+     "binder_chain": "B",
+     "fixed_positions": "B1-B4,B7,B11,B15,B18-B19,B22-B25,B28,B31-B33,B35-B36,B38-B62",
+    "binder_length": 62,
+    "model": {
+      "protocol": "binder",
+      "use_multimer": true,
+      "recycle_mode": "sample"
+    },
+    "contacts": {
+      "intra": {
+        "num": 2,
+        "cutoff": 14,
+        "binary": false,
+        "seqsep": 9
+      },
+      "inter": {
+        "num": 1,
+        "cutoff": 20,
+        "binary": false
+      }
+    },
+    "weights": {
+      "pae": 0.1,
+      "plddt": 0.1,
+      "i_pae": 0.1,
+      "con": 0.1,
+      "i_con": 2.0,
+      "rg": 0.3,
+      "i_ptm": 0.0
+    },
+    "early_stop": {
+      "initial_logits_iters": 75,
+      "initial_e_soft": 0.9,
+      "min_initial_plddt": 0.65,
+      "min_logit_plddt": 0.7,
+      "min_soft_plddt": 0.7
+    },
+    "logit_iters": 175,
+    "logit_e_soft": 1.0,
+    "soft_iters": 0,
+    "soft_e_temp": 0.01,
+    "hard_iters": 0,
+    "hard_temp": 0.01,
+    "semigreedy_iters": 0,
+    "semigreedy_tries": 10,
+    "save_trajectory": false,
+    "save_filters": {
+      "min_plddt": 0.8,
+      "min_iptm": 0.8,
+      "max_pae": null,
+      "max_i_pae": 0.20
+    },
+    "max_attempts": 1000
+  },
+  "proteinmpnn": {
+    "chains_to_design": "B",
+    "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
+    "num_seq_per_target": 10,
+    "sampling_temp": "0.1",
+    "seed": 37,
+    "batch_size": 10,
+    "model_name": "v_48_020",
+    "use_soluble_model": true,
+    "save_score": true,
+    "save_probs": true,
+    "omit_AAs": "X"
+  },
+  "chai1": {
+    "gpu_device": 0,
+    "device": "cuda:0",
+    "target_sequences": null,
+    "model_dir": "/scratch/xz2/chai-1_weights/",
+    "offline": true,
+    "use_esm_embeddings": true,
+    "num_trunk_recycles": 3,
+    "num_diffn_timesteps": 150,
+    "num_diffn_samples": 2,
+    "num_trunk_samples": 1,
+    "low_memory": false,
+    "seed": 42,
+    "max_sequences_per_backbone": null
+  },
+  "screening": {
+    "binder_chain": "B",
+    "target_chain": "A",
+    "use_gpu_relax": true,
+    "use_faspr_repack": true,
+    "openmm_timeout_seconds": 1800,
+    "openmm_max_attempts": 3,
+    "clash_threshold": 2.4,
+    "sasa_engine": "auto",
+    "rerun_failed": false,
+    "filters": {
+      "chai1_plddt": {
+        "threshold": 80.0,
+        "higher": true
+      },
+      "chai1_binder_plddt": {
+        "threshold": 80.0,
+        "higher": true
+      },
+      "relaxed_clashes": {
+        "threshold": 0,
+        "higher": false
+      },
+      "interface_interface_sc": {
+        "threshold": 0.60,
+        "higher": true
+      },
+      "interface_interface_dSASA": {
+        "threshold": 650,
+        "higher": true
+      },
+      "interface_interface_interface_hbonds": {
+        "threshold": 3,
+        "higher": true
+      },
+      "interface_interface_delta_unsat_hbonds": {
+        "threshold": 4,
+        "higher": false
+      }
+    }
+  }
+}
