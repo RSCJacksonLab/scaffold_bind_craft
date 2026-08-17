@@ -7,9 +7,9 @@
   "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
   "fixed_positions": null,
   "multimer_clash_filter": {
-  "enabled": true,
-  "reference_pdb": "/scratch/xz2/ab8507/igg3_designs/00_input/5W38_protein.pdb",
-  "clash_cutoff": 2.0
+    "enabled": true,
+    "reference_pdb": "/scratch/xz2/ab8507/igg3_designs/00_input/5W38_protein.pdb",
+    "clash_cutoff": 2.0
   },
   "tools": {
     "colabdesign_path": "/scratch/xz2/ab8507/colabdesign_modified",
