@@ -28,7 +28,7 @@ source openmm_screen/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 
 # OpenMM screening dependencies
-python -m pip install \
+python -m pip install --no-cache-dir \
   "numpy<2.0.0" \
   scipy \
   pandas \

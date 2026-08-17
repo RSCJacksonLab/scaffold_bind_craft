@@ -16,7 +16,7 @@ python3 -m venv colabdesign_modified
 source colabdesign_modified/bin/activate
 
 #install dependencies
-pip install -r gadi_colabdesign_requirments.txt
+pip install --no-cache-dir -r gadi_colabdesign_requirments.txt
 ```
 
 # Step 2: Clean env

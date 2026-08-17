@@ -25,8 +25,8 @@ python3 -m venv /path/to/install/location/chai1_offline
 source /path/to/install/location/chai1_offline/bin/activate
 
 python -m pip install --upgrade pip
-python -m pip install -e /path/to/install/location/chai-1-offline
-python -m pip install biopython
+python -m pip install --no-cache-dir -e /path/to/install/location/chai-1-offline
+python -m pip install --no-cache-dir biopython
 ```
 
 Download the Chai-1 assets and traced ESM-2 embedding model from `copyq`, which
