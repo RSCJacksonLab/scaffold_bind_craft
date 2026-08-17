@@ -29,7 +29,7 @@
     }
   },
   "rso": {
-    "num_structures": 200,
+    "num_structures": 250,
     "seed": 0,
     "binder_length": 62,
     "model": {
@@ -84,8 +84,8 @@
     "max_attempts": 1000
   },
   "proteinmpnn": {
-    "num_seq_per_target": 50,
-    "sampling_temp": "0.2",
+    "num_seq_per_target": 10,
+    "sampling_temp": "0.1",
     "seed": 37,
     "batch_size": 5,
     "model_name": "v_48_020",
@@ -102,7 +102,7 @@
     "offline": true,
     "use_esm_embeddings": true,
     "num_trunk_recycles": 3,
-    "num_diffn_timesteps": 200,
+    "num_diffn_timesteps": 150,
     "num_diffn_samples": 2,
     "num_trunk_samples": 1,
     "low_memory": false,
@@ -145,7 +145,7 @@
         "higher": true
       },
       "chai1_iptm": {
-        "threshold": 0.75,
+        "threshold": 0.7,
         "higher": true
       },
       "chai1_pae": {
