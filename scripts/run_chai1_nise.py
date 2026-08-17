@@ -31,8 +31,16 @@ from scaffold_bind_craft.chai1_utils import (
     write_metrics_json,
 )
 from scaffold_bind_craft.config import load_settings, require, stage_dir
-from scaffold_bind_craft.io_utils import append_csv, count_fasta_records, parse_fasta, read_csv_rows, symlink_or_copy
+from scaffold_bind_craft.io_utils import (
+    append_csv,
+    count_fasta_records,
+    ensure_csv_fields,
+    parse_fasta,
+    read_csv_rows,
+    symlink_or_copy,
+)
 from scaffold_bind_craft.pdb_utils import extract_chain_sequences, parse_position_string, position_list_for_mpnn
+from scaffold_bind_craft.multimer_clash import check_configured_multimer_clashes
 from scripts.run_chai1_offline import configure_model_paths, run_inference, sequence_inputs
 
 
@@ -55,6 +63,9 @@ FIELDS = [
     "chai1_aggregate_score",
     "chai1_iptm",
     "chai1_pae",
+    "multimer_clash_count",
+    "multimer_clashing_chains",
+    "multimer_alignment_rmsd",
     "reason",
 ]
 
@@ -511,6 +522,13 @@ def build_chai_designs(
     input_dir = round_dir / "chai1" / "inputs"
     input_dir.mkdir(parents=True, exist_ok=True)
     existing = {design_name for design_name, _, _ in find_chai1_predictions(round_dir / "chai1")}
+    existing.update(
+        row["design_name"]
+        for row in read_csv_rows(out / "nise_metrics.csv")
+        if row.get("design_name")
+        and row.get("status") == "filtered_multimer_clash"
+        and row.get("round") == str(round_index)
+    )
     target_sequences = sequence_inputs(settings)
     binder_chain = str(nise.get("binder_chain", settings.get("binder_chain", "B")))
     seen_sequences: dict[str, str] = {}
@@ -565,8 +583,9 @@ def run_chai_round(
     raw_dir = chai_dir / "raw_outputs"
     cif_dir = chai_dir / "cifs"
     predictions_dir = chai_dir / "predictions"
+    filtered_dir = chai_dir / "filtered_pdbs"
     metrics_dir = chai_dir / "metrics"
-    for path in (raw_dir, cif_dir, predictions_dir, metrics_dir):
+    for path in (raw_dir, cif_dir, predictions_dir, filtered_dir, metrics_dir):
         path.mkdir(parents=True, exist_ok=True)
 
     target_sequences = sequence_inputs(settings)
@@ -587,6 +606,7 @@ def run_chai_round(
                 cif_path,
             )
             cif_to_pdb(cif_path, pdb_path)
+            clash_result = check_configured_multimer_clashes(pdb_path, settings)
             metrics = plddt_metrics_from_pdb(
                 pdb_path,
                 binder_chain=binder_chain,
@@ -611,10 +631,28 @@ def run_chai_round(
             )
             add_chai1_error_metrics(metrics, candidates, best_index)
             add_chai1_scores(metrics, raw_output_dir, best_index)
+            if clash_result is not None:
+                metrics.update(
+                    {
+                        "multimer_clash_count": clash_result.clash_count,
+                        "multimer_clashing_chains": list(clash_result.clashing_chains),
+                        "multimer_alignment_rmsd": clash_result.alignment_rmsd,
+                    }
+                )
             write_metrics_json(metrics_path, metrics)
-            found_pdb, found_metrics = find_chai1_prediction(chai_dir, design_name)
-            status = "completed" if found_pdb and found_metrics else "missing_outputs"
-            reason = "" if status == "completed" else "PDB or metrics JSON was not found after Chai-1"
+            if clash_result is not None and clash_result.clashes:
+                filtered_path = filtered_dir / pdb_path.name
+                pdb_path.replace(filtered_path)
+                found_pdb, found_metrics = filtered_path, metrics_path
+                status = "filtered_multimer_clash"
+                reason = (
+                    f"binder clashes with reference chain(s) {','.join(clash_result.clashing_chains)} "
+                    f"at {clash_result.clash_count} atom(s)"
+                )
+            else:
+                found_pdb, found_metrics = find_chai1_prediction(chai_dir, design_name)
+                status = "completed" if found_pdb and found_metrics else "missing_outputs"
+                reason = "" if status == "completed" else "PDB or metrics JSON was not found after Chai-1"
             append_csv(
                 out / "nise_metrics.csv",
                 {
@@ -636,6 +674,9 @@ def run_chai_round(
                     "chai1_aggregate_score": metrics.get("aggregate_score"),
                     "chai1_iptm": metrics.get("iptm"),
                     "chai1_pae": metrics.get("pae"),
+                    "multimer_clash_count": clash_result.clash_count if clash_result else None,
+                    "multimer_clashing_chains": ",".join(clash_result.clashing_chains) if clash_result else "",
+                    "multimer_alignment_rmsd": round(clash_result.alignment_rmsd, 4) if clash_result else None,
                     "reason": reason,
                 },
                 FIELDS,
@@ -686,6 +727,7 @@ def main() -> int:
     configure_model_paths(chai1)
     out = stage_dir(settings, "nise")
     out.mkdir(parents=True, exist_ok=True)
+    ensure_csv_fields(out / "nise_metrics.csv", FIELDS)
     (out / "settings_used.json").write_text(json.dumps(nise, indent=2, sort_keys=True) + "\n")
 
     num_iterations = int(nise.get("num_iterations", 1))

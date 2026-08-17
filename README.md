@@ -2,9 +2,9 @@
 
 Modular scaffold binder design pipeline with restartable HPC stages:
 
-1. `scripts/run_colabdesign_rso.py` performs relaxed sequence optimisation with `colabdesign_modified`, fixed residue support, pLDDT early stopping, and RSO save filters for iPTM, pLDDT, PAE, and interface PAE.
+1. `scripts/run_colabdesign_rso.py` performs relaxed sequence optimisation with `colabdesign_modified`, fixed residue support, pLDDT early stopping, and RSO save filters for iPTM, pLDDT, PAE, interface PAE, and optional clashes against a full multimer.
 2. `scripts/run_proteinmpnn.py` runs ProteinMPNN on accepted RSO structures and designs only the relaxed positions.
-3. `scripts/run_chai1_offline.py` predicts pending ProteinMPNN binder-target sequences with Chai-1 offline in single-sequence mode using ESM embeddings, without MSA or template servers.
+3. `scripts/run_chai1_offline.py` predicts pending ProteinMPNN binder-target sequences with Chai-1 offline in single-sequence mode using ESM embeddings, without MSA or template servers, then optionally filters clashes against a full multimer.
 4. Optional `scripts/run_chai1_nise.py` runs a NISE-style select/expand/repredict loop from Chai-1 structures above `nise.threshold` using ProteinMPNN plus Chai-1.
 5. `scripts/run_openmm_screen.py` relaxes Chai-1 PDBs with the local OpenMM path, scores interfaces with PyRosetta-free utilities, and writes accepted relaxed structures.
 6. `scripts/select_sequences.py` greedily selects a diverse subset of accepted binder sequences for wet-lab testing using Hamming distance.
@@ -79,6 +79,7 @@ output_dir/
     raw_outputs/
     cifs/
     predictions/
+    filtered_pdbs/
     metrics/
     chai1_metrics.csv
   03a_NISE/
@@ -101,6 +102,7 @@ output_dir/
 ## Notes
 
 - RSO uses `rso.fixed_positions` for ColabDesign. If `fixed_positions` is `null`, it is generated as the complement of `rso.design_positions` or top-level `design_positions` within the binder chain. ProteinMPNN uses `proteinmpnn.design_positions` or top-level `design_positions`; these positions are one-indexed positions within the designed chain, matching the upstream helper script semantics.
+- Set `multimer_clash_filter.enabled=true` and `multimer_clash_filter.reference_pdb` to a full multimer PDB to apply the filter after both RSO and Chai-1. The configured target chain is aligned to the same chain in the reference, and the design binder is rejected if any binder heavy atom is within `clash_cutoff` Å of a heavy atom in any non-target reference chain. Rejected PDBs are retained in each stage's `filtered_pdbs/` directory.
 - NISE is disabled by default with `nise.enabled=false`. It starts from `03_chai1/chai1_metrics.csv`, selects completed predictions with `nise.score_field` above `nise.threshold` (default `chai1_aggregate_score >= 0.7`), samples binder variants with ProteinMPNN, repredicts them with Chai-1, and can repeat for `nise.num_iterations`.
 - NISE designs are named `NISE-x-y`, where `x` is the 1-based iteration number and `y` is the 1-based ProteinMPNN design number across that iteration.
 - Each NISE metrics row and JSON records `rso_name` and `rso_pdb` for the originating RSO backbone, alongside the immediate `parent_name` and `parent_pdb`.

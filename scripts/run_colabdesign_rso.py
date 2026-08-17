@@ -13,7 +13,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
-from scaffold_bind_craft.io_utils import append_csv, append_jsonl, read_csv_rows, read_jsonl
+from scaffold_bind_craft.io_utils import append_csv, append_jsonl, ensure_csv_fields, read_csv_rows, read_jsonl
+from scaffold_bind_craft.multimer_clash import check_configured_multimer_clashes
 from scaffold_bind_craft.pdb_utils import parse_position_string
 
 np: Any = None
@@ -37,6 +38,9 @@ METRIC_FIELDS = [
     "iptm",
     "pae",
     "i_pae",
+    "multimer_clash_count",
+    "multimer_clashing_chains",
+    "multimer_alignment_rmsd",
     "output_pdb",
     "reason",
     "elapsed_seconds",
@@ -344,6 +348,26 @@ def run_one(
     pdb_path = target_dir / f"{design_name}.pdb"
     af_model.save_pdb(str(pdb_path), get_best=True)
 
+    clash_result = check_configured_multimer_clashes(pdb_path, settings)
+    if clash_result is not None:
+        metrics.update(
+            {
+                "multimer_clash_count": clash_result.clash_count,
+                "multimer_clashing_chains": ",".join(clash_result.clashing_chains),
+                "multimer_alignment_rmsd": round(clash_result.alignment_rmsd, 4),
+            }
+        )
+        if clash_result.clashes:
+            status = "filtered"
+            clash_reason = (
+                f"binder clashes with reference chain(s) {','.join(clash_result.clashing_chains)} "
+                f"at {clash_result.clash_count} atom(s)"
+            )
+            reason = "; ".join(part for part in (reason, clash_reason) if part)
+            filtered_path = rejected_dir / pdb_path.name
+            pdb_path.replace(filtered_path)
+            pdb_path = filtered_path
+
     if rso.get("save_trajectory", False):
         import pickle
 
@@ -397,6 +421,7 @@ def main() -> int:
         path.mkdir(parents=True, exist_ok=True)
 
     metrics_csv = out / "rso_metrics.csv"
+    ensure_csv_fields(metrics_csv, METRIC_FIELDS)
     manifest_path = out / "manifest.jsonl"
     target = int(rso.get("num_structures", settings.get("num_structures", 0)))
     if target <= 0:

@@ -6,6 +6,13 @@
   "hotspot_residues": "",
   "design_positions": "5 6 8 9 10 12 13 14 16 17 20 21 26 27 29 30 34 37",
   "fixed_positions": null,
+  "multimer_clash_filter": {
+    "enabled": false,
+    "reference_pdb": "/path/to/full_multimer_reference.pdb",
+    "target_chain": "A",
+    "binder_chain": "B",
+    "clash_cutoff": 2.0
+  },
   "tools": {
     "colabdesign_path": "/scratch/xz2/ab8507/scaffold_bindcraft/colabdesign_modified",
     "alphafold_params_dir": "/scratch/xz2/colabfold_params/",
