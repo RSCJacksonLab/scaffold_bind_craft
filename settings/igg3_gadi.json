@@ -29,7 +29,7 @@
     }
   },
   "rso": {
-    "num_structures": 100,
+    "num_structures": 200,
     "seed": 0,
     "binder_length": 62,
     "model": {
