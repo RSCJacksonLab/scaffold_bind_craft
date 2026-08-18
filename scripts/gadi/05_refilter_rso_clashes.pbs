@@ -1,0 +1,31 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q normal
+#PBS -l walltime=00:10:00
+#PBS -l mem=4GB
+#PBS -l ncpus=1
+#PBS -l jobfs=1GB
+#PBS -l wd
+#PBS -l storage=scratch/xz2+gdata/xz2
+#PBS -j oe
+
+set -euo pipefail
+
+module load python3/3.11.7
+
+REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
+CONFIGS="${CONFIGS:-$REPO_DIR/settings/igg3_gadi.json}"
+DRY_RUN="${DRY_RUN:-false}"
+VENV="${VENV:-/scratch/xz2/$USER/colabdesign_modified/.venv}"
+
+IFS=':' read -r -a config_files <<< "$CONFIGS"
+
+source "$VENV/bin/activate"
+cd "$REPO_DIR"
+
+args=("${config_files[@]}")
+if [[ "$DRY_RUN" == "true" ]]; then
+  args=(--dry-run "${args[@]}")
+fi
+
+scripts/refilter_rso_clashes.sh "${args[@]}"

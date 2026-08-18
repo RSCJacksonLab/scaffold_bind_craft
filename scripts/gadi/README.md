@@ -7,6 +7,7 @@ PBS templates for running the four `scaffold_bind_craft` stages on Gadi:
 3. `03_run_chai1_offline.pbs`
 4. `03a_run_chai1_nise.pbs` (optional)
 5. `04_run_openmm_screen.pbs`
+6. `05_refilter_rso_clashes.pbs` (CPU-only RSO clash re-filtering)
 
 Edit the `#PBS -P`, `#PBS -M`, storage flags, and default paths before submitting, or override runtime values with `qsub -v`.
 
@@ -21,6 +22,14 @@ Use `OUTPUT_DIR` to override the settings file output directory for a job:
 ```bash
 qsub -v SETTINGS=/scratch/xz2/$USER/runs/my_run.json,OUTPUT_DIR=/scratch/xz2/$USER/runs/run_001,LIMIT=100 scripts/gadi/03_run_chai1_offline.pbs
 ```
+
+Re-filter one or more completed RSO outputs by supplying colon-separated config files. Stop active RSO jobs first. Start with a dry run:
+
+```bash
+qsub -v CONFIGS="$PWD/settings/igg3_gadi.json:$PWD/settings/iga_gadi.json",DRY_RUN=true scripts/gadi/05_refilter_rso_clashes.pbs
+```
+
+Then apply the changes with `DRY_RUN=false`.
 
 The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `git@github.com:RSCJacksonLab/chai-1-offline.git`, PyTorch, CUDA, and Biopython. Tune `chai1.model_dir`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
 
