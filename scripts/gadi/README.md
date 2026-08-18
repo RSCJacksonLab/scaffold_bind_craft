@@ -7,7 +7,6 @@ PBS templates for running the four `scaffold_bind_craft` stages on Gadi:
 3. `03_run_chai1_offline.pbs`
 4. `03a_run_chai1_nise.pbs` (optional)
 5. `04_run_openmm_screen.pbs`
-6. `05_refilter_rso_clashes.pbs` (CPU-only RSO clash re-filtering)
 
 Edit the `#PBS -P`, `#PBS -M`, storage flags, and default paths before submitting, or override runtime values with `qsub -v`.
 
@@ -23,10 +22,10 @@ Use `OUTPUT_DIR` to override the settings file output directory for a job:
 qsub -v SETTINGS=/scratch/xz2/$USER/runs/my_run.json,OUTPUT_DIR=/scratch/xz2/$USER/runs/run_001,LIMIT=100 scripts/gadi/03_run_chai1_offline.pbs
 ```
 
-Re-filter one or more completed RSO outputs by supplying colon-separated config files. Stop active RSO jobs first. Start with a dry run:
+If an RSO multimer clash check failed or used an incorrect reference, the accessory job `refilter_rso_clashes.pbs` can repair existing outputs. Supply colon-separated config files and stop active RSO jobs first. Start with a dry run:
 
 ```bash
-qsub -v CONFIGS="$PWD/settings/igg3_gadi.json:$PWD/settings/iga_gadi.json",DRY_RUN=true scripts/gadi/05_refilter_rso_clashes.pbs
+qsub -v CONFIGS="$PWD/settings/igg3_gadi.json:$PWD/settings/iga_gadi.json",DRY_RUN=true scripts/gadi/refilter_rso_clashes.pbs
 ```
 
 Then apply the changes with `DRY_RUN=false`.
