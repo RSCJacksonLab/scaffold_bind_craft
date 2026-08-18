@@ -55,6 +55,15 @@ class MultimerClashTests(unittest.TestCase):
             self.assertEqual(result.clashing_chains, ("C",))
             self.assertLess(result.alignment_rmsd, 1e-6)
 
+            thresholded = check_multimer_clashes(
+                design,
+                reference,
+                clash_cutoff=2.0,
+                clash_count_threshold=2,
+            )
+            self.assertFalse(thresholded.clashes)
+            self.assertEqual(thresholded.clash_count, 1)
+
     def test_accepts_when_binder_misses_all_non_target_reference_chains(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             reference = Path(directory) / "reference.pdb"

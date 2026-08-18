@@ -83,7 +83,10 @@ def check_multimer_clashes(
     target_chain: str = "A",
     binder_chain: str = "B",
     clash_cutoff: float = 2.0,
+    clash_count_threshold: int = 1,
 ) -> MultimerClashResult:
+    if clash_count_threshold < 1:
+        raise ValueError("clash_count_threshold must be at least 1")
     parser = PDBParser(QUIET=True)
     design = parser.get_structure("design", str(design_pdb))
     reference = parser.get_structure("reference", str(reference_pdb))
@@ -110,10 +113,11 @@ def check_multimer_clashes(
             clashing_atoms.add(id(binder_atom))
             clashing_chains.update(atom.get_parent().get_parent().id for atom in hits)
 
+    clash_count = len(clashing_atoms)
     return MultimerClashResult(
-        clashes=bool(clashing_atoms),
+        clashes=clash_count >= clash_count_threshold,
         alignment_rmsd=rmsd,
-        clash_count=len(clashing_atoms),
+        clash_count=clash_count,
         clashing_chains=tuple(sorted(clashing_chains)),
     )
 
@@ -134,11 +138,15 @@ def configured_multimer_clash_filter(settings: Mapping[str, Any]) -> dict[str, A
         raise ValueError("multimer_clash_filter.target_chain must be one chain ID")
     if "," in binder_chain or len(binder_chain) != 1:
         raise ValueError("multimer_clash_filter.binder_chain must be one chain ID")
+    clash_count_threshold = int(config.get("clash_count_threshold", 1))
+    if clash_count_threshold < 1:
+        raise ValueError("multimer_clash_filter.clash_count_threshold must be at least 1")
     return {
         "reference_pdb": reference_pdb,
         "target_chain": target_chain,
         "binder_chain": binder_chain,
         "clash_cutoff": float(config.get("clash_cutoff", 2.0)),
+        "clash_count_threshold": clash_count_threshold,
     }
 
 

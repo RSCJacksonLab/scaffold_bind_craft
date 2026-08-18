@@ -9,6 +9,7 @@
 #PBS -l storage=scratch/xz2+gdata/xz2
 
 set -euo pipefail
+trap 'status=$?; echo "ERROR: command failed at line $LINENO (exit $status): $BASH_COMMAND" >&2; exit "$status"' ERR
 
 module load python3/3.10.4
 
@@ -16,10 +17,23 @@ REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 CONFIGS="${CONFIGS:-$REPO_DIR/settings/igg3_gadi.json}"
 DRY_RUN="${DRY_RUN:-false}"
 VENV="${VENV:-/scratch/xz2/$USER/envs/colabdesign_modified}"
+PYTHON="${PYTHON:-$VENV/bin/python3}"
 
 IFS=':' read -r -a config_files <<< "$CONFIGS"
 
-source "$VENV/bin/activate"
+if [[ ! -x "$PYTHON" ]]; then
+  echo "ERROR: Python interpreter is not executable: $PYTHON" >&2
+  echo "Submit with VENV=/path/to/environment or PYTHON=/path/to/python3" >&2
+  exit 2
+fi
+if ! "$PYTHON" -c 'import Bio' >/dev/null 2>&1; then
+  echo "ERROR: $PYTHON cannot import Biopython (Bio)" >&2
+  echo "Use the same Python environment as the RSO job." >&2
+  exit 2
+fi
+
+echo "Using Python: $PYTHON"
+echo "Config files: ${config_files[*]}"
 cd "$REPO_DIR"
 
 args=("${config_files[@]}")
@@ -27,4 +41,4 @@ if [[ "$DRY_RUN" == "true" ]]; then
   args=(--dry-run "${args[@]}")
 fi
 
-python3 scripts/refilter_rso_clashes.py "${args[@]}"
+"$PYTHON" scripts/refilter_rso_clashes.py "${args[@]}"

@@ -9,7 +9,8 @@
   "multimer_clash_filter": {
     "enabled": true,
     "reference_pdb": "/scratch/xz2/ab8507/igg3_designs/00_input/5W38_protein.pdb",
-    "clash_cutoff": 2.0
+    "clash_cutoff": 2.0,
+    "clash_count_threshold": 10
   },
   "tools": {
     "colabdesign_path": "/scratch/xz2/ab8507/colabdesign_modified",
