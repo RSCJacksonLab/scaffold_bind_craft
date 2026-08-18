@@ -28,4 +28,4 @@ if [[ "$DRY_RUN" == "true" ]]; then
   args=(--dry-run "${args[@]}")
 fi
 
-scripts/refilter_rso_clashes.sh "${args[@]}"
+python3 scripts/refilter_rso_clashes.py "${args[@]}"
