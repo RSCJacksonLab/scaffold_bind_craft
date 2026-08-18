@@ -8,7 +8,7 @@
   "fixed_positions": null,
   "multimer_clash_filter": {
     "enabled": true,
-    "reference_pdb": "/scratch/xz2/ab8507/igg3_designs/00_input/1OW0_protein.pdb",
+    "reference_pdb": "/scratch/xz2/ab8507/iga_designs/00_input/1OW0_protein.pdb",
     "clash_cutoff": 2.0
   },
   "tools": {
