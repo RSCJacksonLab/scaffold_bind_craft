@@ -7,11 +7,10 @@
 #PBS -l jobfs=1GB
 #PBS -l wd
 #PBS -l storage=scratch/xz2+gdata/xz2
-#PBS -j oe
 
 set -euo pipefail
 
-module load python3/3.11.7
+module load python3/3.10.4
 
 REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 CONFIGS="${CONFIGS:-$REPO_DIR/settings/igg3_gadi.json}"

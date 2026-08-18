@@ -13,14 +13,14 @@
 
 set -euo pipefail
 
-module load  python3/3.11.7 cuda/12.9.0
-source /path/to/install/location/pmpnn/bin/activate
+module load  python3/3.11.7 cuda/12.9.0 python3-as-python
+source /scratch/xz2/$USER/envs/pmpnn/bin/activate
 
 REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
-LIMIT="${LIMIT:-50}"
+LIMIT="${LIMIT:-50000}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
-VENV="${VENV:-/scratch/xz2/$USER/ProteinMPNN/.venv}"
+VENV="${VENV:-/scratch/xz2/$USER/envs/pmpnn}"
 
 source "$VENV/bin/activate"
 cd "$REPO_DIR"

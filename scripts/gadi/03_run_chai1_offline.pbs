@@ -13,13 +13,13 @@
 
 set -euo pipefail
 
-module load python3/3.10.4 cuda/12.9.0
+module load python3/3.10.4 cuda/12.9.0 python3-as-python
 
 REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
-LIMIT="${LIMIT:-100}"
+LIMIT="${LIMIT:-10000}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
-VENV="${VENV:-/scratch/xz2/$USER/chai1_offline}"
+VENV="${VENV:-/scratch/xz2/$USER/envs/chai1_offline}"
 CHAI_MODEL_DIR="${CHAI_MODEL_DIR:-/scratch/xz2/chai-1_weights/}"
 
 export TMPDIR="${PBS_JOBFS:-/tmp}"

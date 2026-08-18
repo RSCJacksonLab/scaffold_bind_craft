@@ -13,14 +13,14 @@
 
 set -euo pipefail
 
-module load cuda/12.9.0 python3/3.10.4
-source /path/to/install/location/colabdesign_modified/bin/activate
+module load cuda/12.9.0 python3/3.10.4 python3-as-python
+source /scratch/xz2/$USER/envs/colabdesign_modified/bin/activate
 
 REPO_DIR="${REPO_DIR:-/scratch/xz2/$USER/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
-LIMIT="${LIMIT:-50}"
+LIMIT="${LIMIT:-500}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
-VENV="${VENV:-/scratch/xz2/$USER/colabdesign_modified/.venv}"
+VENV="${VENV:-/scratch/xz2/$USER/envs/colabdesign_modified}"
 
 source "$VENV/bin/activate"
 cd "$REPO_DIR"
