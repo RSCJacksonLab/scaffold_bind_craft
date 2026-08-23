@@ -15,7 +15,7 @@
   "tools": {
     "colabdesign_path": "/scratch/xz2/ab8507/colabdesign_modified",
     "alphafold_params_dir": "/scratch/xz2/colabfold_params",
-    "proteinmpnn_path": "/scratch/xz2/ab8507/envs/pmpnn"
+    "proteinmpnn_path": "/scratch/xz2/ab8507/ProteinMPNN"
   },
   "stages": {
     "rso": {
