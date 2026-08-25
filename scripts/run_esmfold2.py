@@ -63,6 +63,26 @@ def load_model(config: dict[str, Any]):
     return model.eval(), device, model_name
 
 
+def ccd_cache_path(config: dict[str, Any]) -> Path:
+    """Return the staged CCD used by ESMFold2 offline input builder."""
+    configured = config.get("ccd_cache")
+    if configured:
+        path = Path(configured).expanduser().resolve()
+    else:
+        model_path = Path(str(config.get("model", "biohub/ESMFold2"))).expanduser()
+        if not model_path.is_dir():
+            raise FileNotFoundError(
+                "ESMFold2 requires esmfold2.ccd_cache when the model is not a local directory"
+            )
+        path = (model_path / "ccd.pkl").resolve()
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Missing ESMFold2 CCD cache: {path}. Re-run "
+            "environments/00_install_esmfold2_copyq.pbs to stage ccd.pkl."
+        )
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run pending ESMFold2 binder-target predictions (alternative stage 3).")
     parser.add_argument("--settings", required=True)
@@ -99,9 +119,10 @@ def main() -> int:
     print(f"ESMFold2 fasta_files={len(list(fasta_dir.glob('*.fa')))}, pending_predictions={len(designs)}")
     if not designs: return 0
 
+    ccd_cache = ccd_cache_path(config)
     model, device, model_name = load_model(config)
     from esm.models.esmfold2 import ESMFold2InputBuilder, ProteinInput, StructurePredictionInput
-    builder = ESMFold2InputBuilder()
+    builder = ESMFold2InputBuilder(ccd_cache=ccd_cache)
     failed = False
     for name, sequences in designs:
         cif, pdb, metrics_path = out / "cifs" / f"{name}.cif", out / "predictions" / f"{name}.pdb", out / "metrics" / f"{name}.json"

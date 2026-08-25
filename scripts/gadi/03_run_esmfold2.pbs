@@ -31,6 +31,11 @@ if [[ ! -f "$MODEL_DIR/config.json" ]]; then
   echo "Run environments/00_install_esmfold2_copyq.pbs first." >&2
   exit 1
 fi
+if [[ ! -f "$MODEL_DIR/ccd.pkl" ]]; then
+  echo "Missing offline ESMFold2 CCD cache: $MODEL_DIR/ccd.pkl" >&2
+  echo "Re-run environments/00_install_esmfold2_copyq.pbs first." >&2
+  exit 1
+fi
 source "$VENV/bin/activate"
 python - <<'PY'
 import torch

@@ -54,6 +54,10 @@ fold_dir = Path(sys.argv[1]).resolve()
 esmc_dir = Path(sys.argv[2]).resolve()
 snapshot_download(repo_id="biohub/ESMFold2", local_dir=fold_dir)
 
+ccd_path = fold_dir / "ccd.pkl"
+if not ccd_path.is_file():
+    raise FileNotFoundError(f"ESMFold2 snapshot did not contain required CCD cache: {ccd_path}")
+
 config_path = fold_dir / "config.json"
 config = json.loads(config_path.read_text())
 if config.get("esmc_config") is None:
@@ -69,9 +73,11 @@ export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 python - "$ESMFOLD2_MODEL_DIR" <<'PY'
 import sys
-from esm.models.esmfold2 import EsmFold2Config
+from pathlib import Path
+from esm.models.esmfold2 import ESMFold2InputBuilder, EsmFold2Config
 
 config = EsmFold2Config.from_pretrained(sys.argv[1])
+ESMFold2InputBuilder(ccd_cache=Path(sys.argv[1]) / "ccd.pkl")
 print(f"Offline config preflight OK: type={config.type}, esmc_id={config.esmc_id}")
 PY
 
