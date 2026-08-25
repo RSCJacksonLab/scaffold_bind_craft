@@ -14,7 +14,7 @@
 set -euo pipefail
 module load python3/3.12.13 cuda/12.9.0 python3-as-python
 
-REPO_DIR="${REPO_DIR:-/scratch/xz2/ab8507/scaffold_bindcraft/scaffold_bind_craft}"
+REPO_DIR="${REPO_DIR:-/scratch/xz2/ab8507/scaffold_bind_craft}"
 SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
 LIMIT="${LIMIT:-10000}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"

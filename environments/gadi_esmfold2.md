@@ -41,8 +41,8 @@ checkout contains changes not yet present on GitHub.
 Both Gadi design settings point at the staged source and checkpoint. Submit:
 
 ```bash
-qsub -v SETTINGS=/scratch/xz2/ab8507/scaffold_bindcraft/scaffold_bind_craft/settings/igg3_gadi.json,LIMIT=100 scripts/gadi/03_run_esmfold2.pbs
-qsub -v SETTINGS=/scratch/xz2/ab8507/scaffold_bindcraft/scaffold_bind_craft/settings/iga_gadi.json,LIMIT=100 scripts/gadi/03_run_esmfold2.pbs
+qsub -v SETTINGS=/scratch/xz2/ab8507/scaffold_bind_craft/settings/igg3_gadi.json,LIMIT=100 scripts/gadi/03_run_esmfold2.pbs
+qsub -v SETTINGS=/scratch/xz2/ab8507/scaffold_bind_craft/settings/iga_gadi.json,LIMIT=100 scripts/gadi/03_run_esmfold2.pbs
 ```
 
 The prediction PBS script sets `HF_HUB_OFFLINE=1` and
