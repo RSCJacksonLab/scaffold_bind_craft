@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -P xz2
-#PBS -q gpuvolta
+#PBS -q gpuhopper
 #PBS -l walltime=48:00:00
 #PBS -l mem=80GB
 #PBS -l jobfs=40GB
