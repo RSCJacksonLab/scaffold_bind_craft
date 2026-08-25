@@ -47,7 +47,7 @@ qsub -v SETTINGS=/scratch/xz2/ab8507/scaffold_bind_craft/settings/iga_gadi.json,
 
 The prediction PBS script sets `HF_HUB_OFFLINE=1` and
 `TRANSFORMERS_OFFLINE=1` and refuses to start if the local checkpoint is
-missing. It passes `<checkpoint>/ccd.pkl` directly to ESMFold2 input builder,
+missing. It passes the checkpoint directory containing `ccd.pkl` to the ESMFold2 input builder,
 so no model, CCD, or package download is attempted on the GPU node.
 
 The published ESMFold2 implementation uses bfloat16 CUDA operations and a 6B

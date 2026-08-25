@@ -63,24 +63,28 @@ def load_model(config: dict[str, Any]):
     return model.eval(), device, model_name
 
 
-def ccd_cache_path(config: dict[str, Any]) -> Path:
-    """Return the staged CCD used by ESMFold2 offline input builder."""
+def ccd_cache_dir(config: dict[str, Any]) -> Path:
+    """Return the directory containing the staged ESMFold2 ``ccd.pkl``."""
     configured = config.get("ccd_cache")
     if configured:
         path = Path(configured).expanduser().resolve()
+        # Older settings/documentation treated ccd_cache as the pickle path.
+        # Accept that spelling too, but the ESMFold2 API expects its parent dir.
+        cache_dir = path.parent if path.name == "ccd.pkl" else path
     else:
         model_path = Path(str(config.get("model", "biohub/ESMFold2"))).expanduser()
         if not model_path.is_dir():
             raise FileNotFoundError(
                 "ESMFold2 requires esmfold2.ccd_cache when the model is not a local directory"
             )
-        path = (model_path / "ccd.pkl").resolve()
-    if not path.is_file():
+        cache_dir = model_path.resolve()
+    ccd_path = cache_dir / "ccd.pkl"
+    if not ccd_path.is_file():
         raise FileNotFoundError(
-            f"Missing ESMFold2 CCD cache: {path}. Re-run "
+            f"Missing ESMFold2 CCD cache: {ccd_path}. Re-run "
             "environments/00_install_esmfold2_copyq.pbs to stage ccd.pkl."
         )
-    return path
+    return cache_dir
 
 
 def main() -> int:
@@ -119,7 +123,7 @@ def main() -> int:
     print(f"ESMFold2 fasta_files={len(list(fasta_dir.glob('*.fa')))}, pending_predictions={len(designs)}")
     if not designs: return 0
 
-    ccd_cache = ccd_cache_path(config)
+    ccd_cache = ccd_cache_dir(config)
     model, device, model_name = load_model(config)
     from esm.models.esmfold2 import ESMFold2InputBuilder, ProteinInput, StructurePredictionInput
     builder = ESMFold2InputBuilder(ccd_cache=ccd_cache)

@@ -77,7 +77,7 @@ from pathlib import Path
 from esm.models.esmfold2 import ESMFold2InputBuilder, EsmFold2Config
 
 config = EsmFold2Config.from_pretrained(sys.argv[1])
-ESMFold2InputBuilder(ccd_cache=Path(sys.argv[1]) / "ccd.pkl")
+ESMFold2InputBuilder(ccd_cache=Path(sys.argv[1]))
 print(f"Offline config preflight OK: type={config.type}, esmc_id={config.esmc_id}")
 PY
 
