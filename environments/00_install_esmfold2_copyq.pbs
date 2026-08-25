@@ -2,9 +2,9 @@
 #PBS -P xz2
 #PBS -q copyq
 #PBS -l walltime=10:00:00
-#PBS -l mem=16GB
-#PBS -l jobfs=40GB
-#PBS -l ncpus=4
+#PBS -l mem=4GB
+#PBS -l jobfs=5GB
+#PBS -l ncpus=1
 #PBS -l wd
 #PBS -r y
 #PBS -l storage=scratch/xz2+gdata/xz2
