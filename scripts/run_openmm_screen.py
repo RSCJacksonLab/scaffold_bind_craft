@@ -15,6 +15,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from scaffold_bind_craft.config import load_settings, require, stage_dir
 from scaffold_bind_craft.chai1_utils import find_chai1_predictions
+from scaffold_bind_craft.esmfold2_utils import (
+    ESMFOLD2_CONFIDENCE_FIELDS,
+    find_esmfold2_predictions,
+    validate_confidence_filters,
+)
 from scaffold_bind_craft.io_utils import append_csv, ensure_csv_fields, flatten_json, read_csv_rows
 from scaffold_bind_craft.openmm_screen_utils import (
     calculate_clash_score,
@@ -45,7 +50,7 @@ PREDICTION_FIELDS = [
     "chai1_aggregate_score",
     "chai1_iptm",
     "chai1_pae",
-]
+] + list(ESMFOLD2_CONFIDENCE_FIELDS)
 
 INTERFACE_FIELDS = [
     "interface_surface_hydrophobicity",
@@ -156,12 +161,15 @@ def passes_filters(
     return (not failed, "; ".join(failed))
 
 
-def chai1_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    return {key: rule for key, rule in filters.items() if key.startswith("chai1_")}
+def prediction_filters(filters: dict[str, Any], prefix: str) -> dict[str, Any]:
+    selected = {key: rule for key, rule in filters.items() if key.startswith(f"{prefix}_")}
+    if prefix == "esmfold2":
+        validate_confidence_filters(selected)
+    return selected
 
 
 def post_prediction_filters(filters: dict[str, Any]) -> dict[str, Any]:
-    prediction_prefixes = ("chai1_", "protenix_", "boltz_")
+    prediction_prefixes = ("chai1_", "esmfold2_", "protenix_", "boltz_")
     return {key: rule for key, rule in filters.items() if not key.startswith(prediction_prefixes)}
 
 
@@ -175,22 +183,27 @@ def first_chain_id(value: Any, default: str = "A") -> str:
     return chains[0] if chains else default
 
 
-def find_prediction_records(settings: dict[str, Any], screen: dict[str, Any]) -> dict[str, tuple[Path, Path]]:
+def find_prediction_records(settings: dict[str, Any], screen: dict[str, Any]) -> tuple[str, dict[str, tuple[Path, Path]]]:
     prediction_stage = str(screen.get("prediction_stage", "chai1")).lower()
     if prediction_stage == "chai1":
         prediction_dirs = [stage_dir(settings, "chai1")]
+        finder = find_chai1_predictions
+    elif prediction_stage == "esmfold2":
+        prediction_dirs = [stage_dir(settings, "esmfold2")]
+        finder = find_esmfold2_predictions
     elif prediction_stage == "nise":
         prediction_dirs = sorted(stage_dir(settings, "nise").glob("round_*/chai1"))
+        finder = find_chai1_predictions
     else:
-        raise ValueError("screening.prediction_stage must be chai1 or nise")
+        raise ValueError("screening.prediction_stage must be chai1, esmfold2, or nise")
 
     records: dict[str, tuple[Path, Path]] = {}
     for prediction_dir in prediction_dirs:
-        for design_name, pdb_path, metrics_path in find_chai1_predictions(prediction_dir):
+        for design_name, pdb_path, metrics_path in finder(prediction_dir):
             if design_name in records:
                 raise ValueError(f"Duplicate prediction name across screening inputs: {design_name}")
             records[design_name] = (pdb_path, metrics_path)
-    return records
+    return ("chai1" if prediction_stage == "nise" else prediction_stage), records
 
 
 def processed_names(csv_path: Path, rerun_failed: bool) -> set[str]:
@@ -234,8 +247,18 @@ def add_chai1_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -
             row[dest] = confidence[source]
 
 
+def add_esmfold2_summary_metrics(row: dict[str, Any], confidence: dict[str, Any]) -> None:
+    for source in (
+        "mean_plddt", "binder_mean_plddt", "target_mean_plddt", "ptm", "iptm",
+        "binder_target_iptm", "mean_pae", "binder_mean_pae", "target_mean_pae",
+        "interface_mean_pae",
+    ):
+        if source in confidence:
+            row[f"esmfold2_{source}"] = confidence[source]
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Relax Chai-1 predictions with OpenMM and screen interfaces.")
+    parser = argparse.ArgumentParser(description="Relax structure predictions with OpenMM and screen interfaces.")
     parser.add_argument("--settings", required=True)
     parser.add_argument("--output-dir")
     parser.add_argument("--limit", type=int, default=None, help="Maximum pending predictions to screen in this run.")
@@ -250,7 +273,7 @@ def main() -> int:
     for path in (pdb_dir, relaxed_dir, accepted_dir):
         path.mkdir(parents=True, exist_ok=True)
 
-    prediction_records = find_prediction_records(settings, screen)
+    prediction_prefix, prediction_records = find_prediction_records(settings, screen)
     names = list(prediction_records)
     metrics_csv = out / "screening_metrics.csv"
     fields = BASE_FIELDS + PREDICTION_FIELDS + INTERFACE_FIELDS
@@ -282,14 +305,17 @@ def main() -> int:
             sample_metrics: dict[str, list[float]] = {}
             prediction_path, metrics_path = prediction_records[design_name]
             if not prediction_path or not metrics_path:
-                raise FileNotFoundError("Chai-1 PDB/metrics JSON not found")
+                raise FileNotFoundError(f"{prediction_prefix} PDB/metrics JSON not found")
             with metrics_path.open() as handle:
                 confidence = json.load(handle)
 
             flat_conf: dict[str, Any] = {}
-            flatten_json("chai1", confidence, flat_conf)
+            flatten_json(prediction_prefix, confidence, flat_conf)
             row.update({key: value for key, value in flat_conf.items() if key in PREDICTION_FIELDS})
-            add_chai1_summary_metrics(row, confidence)
+            if prediction_prefix == "chai1":
+                add_chai1_summary_metrics(row, confidence)
+            else:
+                add_esmfold2_summary_metrics(row, confidence)
 
             sequence = extract_chain_sequences(prediction_path, [str(binder_chain)]).get(str(binder_chain), "")
             row["sequence"] = sequence
@@ -314,7 +340,7 @@ def main() -> int:
             if sequence_key:
                 seen_sequences[sequence_key] = design_name
 
-            passed, reason = passes_filters(row, chai1_filters(filters), sample_metrics)
+            passed, reason = passes_filters(row, prediction_filters(filters, prediction_prefix), sample_metrics)
             if not passed:
                 row.update(
                     {
@@ -333,10 +359,10 @@ def main() -> int:
                 print(f"{design_name}: {row['status']} {row.get('reason', '')}")
                 continue
 
-            unrelaxed_pdb = pdb_dir / f"{design_name}_chai1.pdb"
+            unrelaxed_pdb = pdb_dir / f"{design_name}_{prediction_prefix}.pdb"
             if not unrelaxed_pdb.exists() or unrelaxed_pdb.stat().st_size == 0:
                 shutil.copy2(prediction_path, unrelaxed_pdb)
-            relaxed_pdb = relaxed_dir / f"{design_name}_chai1_openmm_relaxed.pdb"
+            relaxed_pdb = relaxed_dir / f"{design_name}_{prediction_prefix}_openmm_relaxed.pdb"
             if not relaxed_pdb.exists() or relaxed_pdb.stat().st_size == 0:
                 openmm_relax_subprocess(
                     str(unrelaxed_pdb),

@@ -24,11 +24,8 @@
     "proteinmpnn": {
       "dir": "02_proteinmpnn"
     },
-    "chai1": {
-      "dir": "03_chai1"
-    },
-    "nise": {
-      "dir": "03a_NISE"
+    "esmfold2": {
+      "dir": "03_esmfold2"
     },
     "openmm": {
       "dir": "04_openmm_screen"
@@ -100,40 +97,22 @@
     "save_probs": true,
     "omit_AAs": "X"
   },
-  "chai1": {
+  "esmfold2": {
+    "source_path": "/scratch/xz2/esmfold2/esm",
+    "model": "/scratch/xz2/esmfold2/models/ESMFold2",
     "gpu_device": 0,
     "device": "cuda:0",
-    "target_sequences": null,
-    "model_dir": "/models/chai-1",
+    "esmc_precision": "bf16",
     "offline": true,
-    "use_esm_embeddings": true,
-    "num_trunk_recycles": 3,
-    "num_diffn_timesteps": 150,
-    "num_diffn_samples": 2,
-    "num_trunk_samples": 1,
-    "low_memory": false,
+    "target_sequences": null,
+    "num_loops": 20,
+    "num_sampling_steps": 100,
+    "lm_dropout": 0.3,
     "seed": 42,
     "max_sequences_per_backbone": null
   },
-  "nise": {
-    "enabled": true,
-    "threshold": 0.7,
-    "score_field": "chai1_iptm",
-    "num_iterations": 25,
-    "num_top_backbones_per_round": 10,
-    "sequences_sampled_per_backbone": 10,
-    "max_sequences_per_backbone": 5,
-    "proteinmpnn": {
-      "python": "/cluster/home/anthony/pmpnn/bin/python"
-    },
-    "chai1": {},
-    "num_random_design_positions": 3,
-    "random_seed": 37,
-    "design_positions": "interface",
-    "interface_sasa_threshold": 1.0
-  },
   "screening": {
-    "prediction_stage": "nise",
+    "prediction_stage": "esmfold2",
     "use_gpu_relax": true,
     "use_faspr_repack": true,
     "openmm_timeout_seconds": 1800,
@@ -142,19 +121,19 @@
     "sasa_engine": "auto",
     "rerun_failed": false,
     "filters": {
-      "chai1_plddt": {
+      "esmfold2_mean_plddt": {
         "threshold": 80.0,
         "higher": true
       },
-      "chai1_binder_plddt": {
+      "esmfold2_binder_mean_plddt": {
         "threshold": 80.0,
         "higher": true
       },
-      "chai1_iptm": {
+      "esmfold2_iptm": {
         "threshold": 0.7,
         "higher": true
       },
-      "chai1_pae": {
+      "esmfold2_interface_mean_pae": {
         "threshold": 6,
         "higher": false
       },

@@ -4,7 +4,7 @@ PBS templates for running the four `scaffold_bind_craft` stages on Gadi:
 
 1. `01_run_colabdesign_rso.pbs`
 2. `02_run_proteinmpnn.pbs`
-3. `03_run_chai1_offline.pbs`
+3. `03_run_chai1_offline.pbs` or `03_run_esmfold2.pbs`
 4. `03a_run_chai1_nise.pbs` (optional)
 5. `04_run_openmm_screen.pbs`
 
@@ -31,6 +31,10 @@ qsub -v CONFIGS="$PWD/settings/igg3_gadi.json:$PWD/settings/iga_gadi.json",DRY_R
 Then apply the changes with `DRY_RUN=false`.
 
 The Chai-1 job runs in the active `VENV`, which should provide `chai_lab` from `git@github.com:RSCJacksonLab/chai-1-offline.git`, PyTorch, CUDA, and Biopython. Tune `chai1.model_dir`, `chai1.device`, `chai1.num_trunk_recycles`, `chai1.num_diffn_timesteps`, and `chai1.num_diffn_samples` in the settings JSON for the available GPU memory.
+
+The ESMFold2 alternative runs in `VENV` and imports the checkout configured by `esmfold2.source_path`. Install that checkout and its CUDA/PyTorch dependencies in the environment, and either cache `biohub/ESMFold2` in `HF_HOME` or point `esmfold2.model` at a local checkpoint.
+
+For an air-gapped installation, submit `environments/00_install_esmfold2_copyq.pbs`; see `environments/gadi_esmfold2.md`. It builds the Python 3.12 environment and stages ESMFold2 plus any separately required ESMC weights. The prediction job performs a bfloat16 GPU capability check before loading the model.
 
 Download Chai-1 assets and the traced ESM-2 embedding model on `copyq` before offline prediction jobs:
 

@@ -274,19 +274,37 @@ def openmm_relax(
         target_chains = os.environ.get("BINDCRAFT_TARGET_CHAINS")
         if starting_pdb and os.path.isfile(starting_pdb) and target_chains:
             lengths = compute_target_segment_lengths(starting_pdb, target_chains)
-            if len([length for length in lengths if length > 0]) >= 2:
+            target_chain_ids = [chain.strip() for chain in str(target_chains).split(",") if chain.strip()]
+            predicted_model = PDBParser(QUIET=True).get_structure("prediction", pdb_file_path)[0]
+            predicted_chain_ids = {chain.id for chain in predicted_model}
+            targets_already_separate = set(target_chain_ids).issubset(predicted_chain_ids)
+            source_chain_id = target_chain_ids[0] if target_chain_ids else "A"
+            source_length = (
+                sum(
+                    1 for residue in predicted_model[source_chain_id]
+                    if Polypeptide.is_aa(residue, standard=True)
+                )
+                if source_chain_id in predicted_model else 0
+            )
+            target_total_length = sum(length for length in lengths if length > 0)
+            if (
+                len([length for length in lengths if length > 0]) >= 2
+                and not targets_already_separate
+                and source_length == target_total_length
+            ):
                 import string
 
-                chain_pool = [chain_id for chain_id in string.ascii_uppercase if chain_id not in {"A", "B"}]
+                reserved_chain_ids = predicted_chain_ids | set(target_chain_ids)
+                chain_pool = [chain_id for chain_id in string.ascii_uppercase if chain_id not in reserved_chain_ids]
                 chain_pool += list("0123456789") + list(string.ascii_lowercase)
                 new_chain_ids = chain_pool[: len(lengths)]
                 tmp = tempfile.NamedTemporaryFile(suffix=".pdb", delete=False)
                 tmp.close()
                 deconcat_tmp = tmp.name
-                split_chain_into_subchains(pdb_file_path, "A", lengths, new_chain_ids, deconcat_tmp)
+                split_chain_into_subchains(pdb_file_path, source_chain_id, lengths, new_chain_ids, deconcat_tmp)
                 if os.path.isfile(deconcat_tmp) and os.path.getsize(deconcat_tmp) > 0:
                     pdb_for_fixer = deconcat_tmp
-                    reconcat_spec = (new_chain_ids, "A")
+                    reconcat_spec = (new_chain_ids, source_chain_id)
                 else:
                     deconcat_tmp = None
 

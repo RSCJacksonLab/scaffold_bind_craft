@@ -1,0 +1,49 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q gpuvolta
+#PBS -l walltime=48:00:00
+#PBS -l mem=80GB
+#PBS -l jobfs=40GB
+#PBS -l ncpus=12
+#PBS -l ngpus=1
+#PBS -l wd
+#PBS -r y
+#PBS -l storage=scratch/xz2+gdata/xz2
+#PBS -M <YOUR_EMAIL_HERE>
+
+set -euo pipefail
+module load python3/3.12.13 cuda/12.9.0 python3-as-python
+
+REPO_DIR="${REPO_DIR:-/scratch/xz2/ab8507/scaffold_bindcraft/scaffold_bind_craft}"
+SETTINGS="${SETTINGS:-$REPO_DIR/settings/example.json}"
+LIMIT="${LIMIT:-10000}"
+OUTPUT_DIR="${OUTPUT_DIR:-}"
+VENV="${VENV:-/scratch/xz2/esmfold2/envs/esmfold2}"
+MODEL_DIR="${MODEL_DIR:-/scratch/xz2/esmfold2/models/ESMFold2}"
+
+export TMPDIR="${PBS_JOBFS:-/tmp}"
+export HF_HOME="${HF_HOME:-/scratch/xz2/esmfold2/huggingface}"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+mkdir -p "$HF_HOME"
+if [[ ! -f "$MODEL_DIR/config.json" ]]; then
+  echo "Missing offline ESMFold2 checkpoint: $MODEL_DIR/config.json" >&2
+  echo "Run environments/00_install_esmfold2_copyq.pbs first." >&2
+  exit 1
+fi
+source "$VENV/bin/activate"
+python - <<'PY'
+import torch
+if not torch.cuda.is_available():
+    raise SystemExit("CUDA is not available in the ESMFold2 job")
+if not torch.cuda.is_bf16_supported():
+    raise SystemExit(
+        f"ESMFold2 requires bfloat16-capable CUDA hardware; allocated GPU is {torch.cuda.get_device_name(0)}"
+    )
+print(f"ESMFold2 GPU preflight OK: {torch.cuda.get_device_name(0)}")
+PY
+cd "$REPO_DIR"
+
+args=(--settings "$SETTINGS" --limit "$LIMIT")
+if [[ -n "$OUTPUT_DIR" ]]; then args+=(--output-dir "$OUTPUT_DIR"); fi
+python3 scripts/run_esmfold2.py "${args[@]}"

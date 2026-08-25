@@ -28,6 +28,9 @@
     "chai1": {
       "dir": "03_chai1"
     },
+    "esmfold2": {
+      "dir": "03_esmfold2"
+    },
     "nise": {
       "dir": "03a_NISE"
     },
@@ -113,6 +116,20 @@
     "num_diffn_samples": 2,
     "num_trunk_samples": 1,
     "low_memory": false,
+    "seed": 42,
+    "max_sequences_per_backbone": null
+  },
+  "esmfold2": {
+    "source_path": "/Users/u7282763/repos/esm",
+    "model": "biohub/ESMFold2",
+    "gpu_device": 0,
+    "device": "cuda:0",
+    "esmc_precision": "bf16",
+    "offline": false,
+    "target_sequences": null,
+    "num_loops": 20,
+    "num_sampling_steps": 100,
+    "lm_dropout": 0.3,
     "seed": 42,
     "max_sequences_per_backbone": null
   },

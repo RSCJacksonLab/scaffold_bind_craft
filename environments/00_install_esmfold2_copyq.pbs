@@ -1,0 +1,91 @@
+#!/bin/bash
+#PBS -P xz2
+#PBS -q copyq
+#PBS -l walltime=10:00:00
+#PBS -l mem=16GB
+#PBS -l jobfs=40GB
+#PBS -l ncpus=4
+#PBS -l wd
+#PBS -r y
+#PBS -l storage=scratch/xz2+gdata/xz2
+#PBS -M <YOUR_EMAIL_HERE>
+
+set -euo pipefail
+umask 0007
+
+# copyq has outbound network access. This creates the persistent Python 3.12
+# environment and stages every Hugging Face checkpoint needed by offline GPU jobs.
+module load python3/3.12.13
+
+INSTALL_ROOT="${INSTALL_ROOT:-/scratch/xz2/esmfold2}"
+ESM_SOURCE="${ESM_SOURCE:-$INSTALL_ROOT/esm}"
+VENV="${VENV:-$INSTALL_ROOT/envs/esmfold2}"
+MODEL_ROOT="${MODEL_ROOT:-$INSTALL_ROOT/models}"
+ESMFOLD2_MODEL_DIR="${ESMFOLD2_MODEL_DIR:-$MODEL_ROOT/ESMFold2}"
+ESMC_MODEL_DIR="${ESMC_MODEL_DIR:-$MODEL_ROOT/ESMC-6B}"
+HF_HOME="${HF_HOME:-$INSTALL_ROOT/huggingface}"
+ESM_GIT_URL="${ESM_GIT_URL:-https://github.com/Biohub/esm.git}"
+ESM_GIT_REF="${ESM_GIT_REF:-main}"
+GROUP="${GROUP:-xz2}"
+
+mkdir -p "$INSTALL_ROOT" "$MODEL_ROOT" "$HF_HOME" "$(dirname "$VENV")"
+export HF_HOME
+export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$INSTALL_ROOT/pip-cache}"
+mkdir -p "$PIP_CACHE_DIR"
+
+if [[ ! -f "$ESM_SOURCE/pyproject.toml" ]]; then
+  git clone --branch "$ESM_GIT_REF" --depth 1 "$ESM_GIT_URL" "$ESM_SOURCE"
+fi
+
+if [[ ! -x "$VENV/bin/python" ]]; then
+  python3 -m venv "$VENV"
+fi
+source "$VENV/bin/activate"
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install --no-cache-dir -e "$ESM_SOURCE"
+
+python - "$ESMFOLD2_MODEL_DIR" "$ESMC_MODEL_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+from huggingface_hub import snapshot_download
+
+fold_dir = Path(sys.argv[1]).resolve()
+esmc_dir = Path(sys.argv[2]).resolve()
+snapshot_download(repo_id="biohub/ESMFold2", local_dir=fold_dir)
+
+config_path = fold_dir / "config.json"
+config = json.loads(config_path.read_text())
+if config.get("esmc_config") is None:
+    snapshot_download(repo_id=config.get("esmc_id", "biohub/ESMC-6B"), local_dir=esmc_dir)
+    config["esmc_id"] = str(esmc_dir)
+    config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
+    print(f"Staged separate ESMC backbone at {esmc_dir}")
+else:
+    print("ESMC backbone is bundled in the ESMFold2 checkpoint")
+PY
+
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+python - "$ESMFOLD2_MODEL_DIR" <<'PY'
+import sys
+from esm.models.esmfold2 import EsmFold2Config
+
+config = EsmFold2Config.from_pretrained(sys.argv[1])
+print(f"Offline config preflight OK: type={config.type}, esmc_id={config.esmc_id}")
+PY
+
+chgrp -R "$GROUP" "$ESM_SOURCE" "$VENV" "$MODEL_ROOT" "$HF_HOME" "$PIP_CACHE_DIR"
+chmod -R g+rwX "$ESM_SOURCE" "$VENV" "$MODEL_ROOT" "$HF_HOME" "$PIP_CACHE_DIR"
+
+cat <<EOF
+
+ESMFold2 offline installation is ready.
+  source:     $ESM_SOURCE
+  venv:       $VENV
+  checkpoint: $ESMFOLD2_MODEL_DIR
+  HF cache:   $HF_HOME
+
+Submit inference with:
+  qsub -v SETTINGS=/path/to/settings.json scripts/gadi/03_run_esmfold2.pbs
+EOF
