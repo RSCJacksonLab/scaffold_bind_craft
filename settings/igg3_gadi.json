@@ -134,7 +134,7 @@
         "higher": true
       },
       "esmfold2_interface_mean_pae": {
-        "threshold": 6,
+        "threshold": 8,
         "higher": false
       },
       "relaxed_clashes": {
